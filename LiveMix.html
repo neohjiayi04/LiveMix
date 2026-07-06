@@ -1,0 +1,653 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SoundBoard Pro</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:#f0f0f0;font-size:13px;min-height:100vh;display:flex;flex-direction:column}
+/* Title bar */
+.title-bar{background:linear-gradient(to right,#1e5799,#2989d8);color:#fff;padding:6px 12px;display:flex;align-items:center;justify-content:space-between}
+.title-bar h1{font-size:14px;font-weight:700;letter-spacing:0.5px}
+.title-bar .window-btns span{display:inline-block;width:12px;height:12px;margin-left:4px;background:#fff3;border-radius:2px;cursor:pointer;text-align:center;font-size:9px;line-height:12px}
+/* Subtitle row */
+.subtitle-row{background:#e8e8e8;border-bottom:1px solid #ccc;padding:4px 12px;display:flex;align-items:center;gap:12px;font-size:11px;color:#555}
+.subtitle-row .tagline{flex:1}
+.subtitle-row label{display:flex;align-items:center;gap:3px;cursor:pointer}
+.hotkey-badge{background:#2989d8;color:#fff;padding:1px 6px;border-radius:3px;font-size:10px;font-weight:700}
+/* Quick access row */
+.section-label{font-size:11px;color:#666;padding:6px 12px 2px;font-weight:700}
+.quick-row{display:flex;gap:4px;padding:4px 12px;flex-wrap:wrap}
+.quick-btn{padding:8px 16px;background:#dceaff;border:1px solid #9cc;border-radius:3px;cursor:pointer;font-size:12px;font-weight:600;color:#1e5799;transition:background .15s}
+.quick-btn:hover{background:#b8d4f8}
+.quick-btn.playing{background:#4a90d9;color:#fff;border-color:#2a70b9}
+/* Controls row */
+.controls-row{display:flex;align-items:center;gap:10px;padding:5px 12px;border-top:1px solid #ddd;border-bottom:1px solid #ddd;background:#f8f8f8;flex-wrap:wrap}
+.controls-row label{font-size:11px;color:#555;display:flex;align-items:center;gap:4px}
+.controls-row input[type=number]{width:50px;padding:2px 4px;border:1px solid #999;border-radius:2px;font-size:12px;text-align:center}
+.controls-row select{padding:2px 4px;border:1px solid #999;border-radius:2px;font-size:11px}
+.pitch-btn{padding:2px 8px;border:1px solid #999;background:#e8e8e8;border-radius:2px;cursor:pointer;font-size:11px}
+.pitch-btn.active{background:#4a90d9;color:#fff;border-color:#2a70b9}
+.stop-btn{padding:5px 18px;background:#d9534f;color:#fff;border:1px solid #c9302c;border-radius:3px;cursor:pointer;font-size:12px;font-weight:700;margin-left:auto}
+.stop-btn:hover{background:#c9302c}
+/* Category tabs */
+.tabs{display:flex;padding:0 12px;gap:0;margin-top:6px}
+.tab{padding:5px 12px;font-size:11px;background:#ddd;border:1px solid #bbb;border-bottom:none;border-radius:4px 4px 0 0;cursor:pointer;position:relative;top:1px;color:#444}
+.tab:hover{background:#eee}
+.tab.active{background:#fff;border-bottom:1px solid #fff;color:#1e5799;font-weight:700;z-index:1}
+/* Sound grid */
+.grid-container{border:1px solid #bbb;border-radius:0 4px 4px 4px;background:#fff;margin:0 12px;padding:6px;flex:1;overflow-y:auto;min-height:200px}
+.sound-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:3px}
+.sound-btn{padding:6px 4px;background:#e8e8e8;border:1px solid #999;border-radius:2px;cursor:pointer;font-size:12px;text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;transition:background .15s;position:relative;user-select:none}
+.sound-btn:hover{background:#d8d8d8}
+.sound-btn.playing{background:#4a90d9;color:#fff;border-color:#2a70b9}
+.sound-btn.looping::after{content:"\21BB";position:absolute;top:1px;right:3px;font-size:9px;color:#d9534f}
+.sound-btn.playing.looping::after{color:#fff}
+/* Upload area in Custom tab */
+.upload-area{display:flex;flex-direction:column;align-items:center;gap:8px;padding:20px}
+.upload-btn{padding:8px 20px;background:#5cb85c;color:#fff;border:1px solid #4cae4c;border-radius:3px;cursor:pointer;font-size:12px;font-weight:600}
+.upload-btn:hover{background:#449d44}
+/* Import panel */
+.import-btn{padding:5px 14px;background:#5cb85c;color:#fff;border:1px solid #4cae4c;border-radius:3px;cursor:pointer;font-size:11px;font-weight:700}
+.import-btn:hover{background:#449d44}
+.import-panel{display:none;border:1px solid #bbb;border-top:none;background:#fff;margin:0 12px;padding:8px;max-height:260px;overflow-y:auto}
+.import-panel.open{display:block}
+.import-panel-header{display:flex;align-items:center;justify-content:space-between;padding-bottom:6px;border-bottom:1px solid #ddd;margin-bottom:6px}
+.import-panel-header h4{font-size:12px;color:#333;margin:0}
+.import-panel-header button{font-size:11px;padding:3px 10px}
+.imported-list{display:flex;flex-direction:column;gap:4px}
+.imported-item{display:flex;align-items:center;gap:6px;padding:6px 8px;background:#f9f9f9;border:1px solid #ddd;border-radius:3px;flex-wrap:wrap}
+.imported-item .ii-name{font-size:12px;font-weight:600;color:#333;min-width:100px;max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;cursor:pointer;padding:2px 4px;border:1px solid transparent;border-radius:2px}
+.imported-item .ii-name:hover{border-color:#999;background:#fff}
+.imported-item .ii-name input{width:120px;font-size:11px;padding:1px 3px;border:1px solid #4a90d9;border-radius:2px}
+.imported-item label{font-size:10px;color:#666;display:flex;align-items:center;gap:3px}
+.imported-item input[type=range]{width:60px;height:12px}
+.imported-item .ii-ctrl-btn{padding:2px 7px;font-size:10px;border:1px solid #999;background:#e8e8e8;border-radius:2px;cursor:pointer}
+.imported-item .ii-ctrl-btn:hover{background:#d0d0d0}
+.imported-item .ii-ctrl-btn.playing{background:#4a90d9;color:#fff;border-color:#2a70b9}
+.imported-item .ii-ctrl-btn.loop-on{background:#f0ad4e;color:#fff;border-color:#d9943a}
+.imported-item .ii-ctrl-btn.delete{background:#d9534f;color:#fff;border-color:#c9302c}
+.imported-item .ii-ctrl-btn.delete:hover{background:#c9302c}
+.imported-item select{font-size:10px;padding:1px 3px;border:1px solid #999;border-radius:2px}
+.import-empty{text-align:center;padding:20px;color:#999;font-size:12px}
+/* Bottom row */
+.bottom-row{display:flex;align-items:center;gap:10px;padding:6px 12px;border-top:1px solid #ccc;background:#e8e8e8;flex-wrap:wrap}
+.bottom-row label{font-size:11px;color:#555}
+.bottom-row select{padding:2px 6px;border:1px solid #999;border-radius:2px;font-size:11px}
+.bottom-row button{padding:4px 12px;background:#e8e8e8;border:1px solid #999;border-radius:3px;cursor:pointer;font-size:11px}
+.bottom-row button:hover{background:#d0d0d0}
+.bottom-row .search-fs-btn{background:#2989d8;color:#fff;border-color:#1e5799}
+.bottom-row .search-fs-btn:hover{background:#1e5799}
+/* Modal overlay */
+.modal-overlay{display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.4);z-index:100;justify-content:center;align-items:center}
+.modal-overlay.open{display:flex}
+.modal{background:#fff;border:1px solid #999;border-radius:6px;width:500px;max-width:90vw;max-height:80vh;display:flex;flex-direction:column;box-shadow:0 4px 20px rgba(0,0,0,.3)}
+.modal-header{background:linear-gradient(to right,#1e5799,#2989d8);color:#fff;padding:8px 12px;display:flex;align-items:center;justify-content:space-between;border-radius:6px 6px 0 0}
+.modal-header h3{font-size:13px}
+.modal-close{background:none;border:none;color:#fff;font-size:16px;cursor:pointer}
+.modal-body{padding:12px;overflow-y:auto;flex:1}
+.modal-body input{width:100%;padding:6px 8px;border:1px solid #999;border-radius:3px;font-size:12px;margin-bottom:8px}
+.modal-note{font-size:10px;color:#888;margin-bottom:10px;padding:6px;background:#f8f8f0;border:1px solid #eee;border-radius:3px}
+.search-results{display:flex;flex-direction:column;gap:4px}
+.search-result-item{display:flex;align-items:center;justify-content:space-between;padding:6px 8px;background:#f5f5f5;border:1px solid #ddd;border-radius:3px}
+.search-result-item span{font-size:12px}
+.search-result-item button{padding:2px 8px;background:#5cb85c;color:#fff;border:1px solid #4cae4c;border-radius:2px;cursor:pointer;font-size:10px}
+.search-result-item button:hover{background:#449d44}
+/* Responsive */
+@media(max-width:600px){
+.sound-grid{grid-template-columns:repeat(3,1fr)}
+.quick-row{gap:3px}
+.quick-btn{padding:6px 10px;font-size:11px}
+.tabs{flex-wrap:wrap}
+}
+</style>
+</head>
+<body>
+<!-- Title Bar -->
+<div class="title-bar">
+  <h1>SoundBoard Pro 8.7</h1>
+  <div class="window-btns"><span>_</span><span>&#9633;</span><span>X</span></div>
+</div>
+
+<!-- Subtitle Row -->
+<div class="subtitle-row">
+  <span class="tagline">The easy way to play background sounds for any scenario</span>
+  <label><span class="hotkey-badge">F8</span> Hotkey</label>
+  <label><input type="checkbox" id="always-on-top"> Always on top</label>
+</div>
+
+<!-- Section: Common Effects -->
+<div class="section-label">Common Effects</div>
+<div class="quick-row" id="quick-row"></div>
+
+<!-- Controls Row -->
+<div class="controls-row">
+  <label>Volume: <input type="number" id="volume-ctrl" min="0" max="100" value="80">%</label>
+  <label>Pitch:</label>
+  <button class="pitch-btn active" data-pitch="1" onclick="setPitch(1,this)">Normal</button>
+  <button class="pitch-btn" data-pitch="0.8" onclick="setPitch(0.8,this)">Low</button>
+  <button class="pitch-btn" data-pitch="1.2" onclick="setPitch(1.2,this)">High</button>
+  <button class="import-btn" onclick="toggleImportPanel()">IMPORT AUDIO</button>
+  <button class="stop-btn" onclick="stopAll()">STOP ALL</button>
+</div>
+
+<!-- Category Tabs -->
+<div class="tabs" id="tabs"></div>
+
+<!-- Import Audio Panel -->
+<div class="import-panel" id="import-panel">
+  <div class="import-panel-header">
+    <h4>Imported Audio Library</h4>
+    <div>
+      <button class="import-btn" onclick="importAudioFiles()">+ Import Files</button>
+      <input type="file" id="import-file-input" accept=".mp3,.wav,.ogg,.flac,.m4a,.aac,.webm" multiple style="display:none">
+    </div>
+  </div>
+  <div class="imported-list" id="imported-list">
+    <div class="import-empty">No imported audio yet. Click "Import Files" to add your own sounds.</div>
+  </div>
+</div>
+
+<!-- Sound Grid -->
+<div class="grid-container">
+  <div class="sound-grid" id="sound-grid"></div>
+  <div class="upload-area" id="upload-area" style="display:none">
+    <button class="upload-btn" onclick="uploadSound()">Upload Sound</button>
+    <input type="file" id="file-input" accept=".mp3,.wav,.ogg" multiple style="display:none">
+    <div class="sound-grid" id="custom-grid"></div>
+  </div>
+</div>
+
+<!-- Bottom Row -->
+<div class="bottom-row">
+  <label>Audio Output:</label>
+  <select id="audio-output">
+    <option>Default Output</option>
+    <option>Speakers</option>
+    <option>Headphones</option>
+    <option>Virtual Cable</option>
+  </select>
+  <button class="search-fs-btn" onclick="openSearchModal()">Search Freesound</button>
+  <label>Board:</label>
+  <select id="board-select" onchange="switchBoard(this.value)"></select>
+  <button onclick="newBoard()">New Board</button>
+</div>
+
+<!-- Freesound Search Modal -->
+<div class="modal-overlay" id="search-modal">
+  <div class="modal">
+    <div class="modal-header">
+      <h3>Search Freesound</h3>
+      <button class="modal-close" onclick="closeSearchModal()">&times;</button>
+    </div>
+    <div class="modal-body">
+      <input type="text" id="fs-search-input" placeholder="Search for sounds..." onkeydown="if(event.key==='Enter')doFreesoundSearch()">
+      <div class="modal-note">Note: A Freesound API key is required for live results. Showing mock results for demonstration.</div>
+      <div class="search-results" id="fs-results"></div>
+    </div>
+  </div>
+</div>
+<script>
+// === AUDIO ENGINE ===
+const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+const masterGain = audioCtx.createGain();
+masterGain.gain.value = 0.8;
+masterGain.connect(audioCtx.destination);
+let currentPitch = 1;
+const activeSources = {}; // key -> {source, gain}
+
+function resumeCtx(){if(audioCtx.state==='suspended')audioCtx.resume();}
+
+// === SOUND GENERATORS ===
+const sr = audioCtx.sampleRate;
+function makeBuf(dur){return audioCtx.createBuffer(1,sr*dur,sr);}
+
+const GENERATORS = {
+  // Quick access
+  'Applause':()=>{const b=makeBuf(2),c=b.getChannelData(0);for(let i=0;i<c.length;i++){const t=i/sr;c[i]=(Math.random()*2-1)*0.4*(t<0.1?t*10:t>1.8?1-(t-1.8)*5:1)*Math.sin(t*50)*0.3+(Math.random()*2-1)*0.3;}return b;},
+  'Airhorn':()=>{const b=makeBuf(1.5),c=b.getChannelData(0);for(let i=0;i<c.length;i++){const t=i/sr;c[i]=Math.sin(2*Math.PI*800*t+6*Math.sin(2*Math.PI*3*t))*Math.exp(-t*0.5)*0.8;}return b;},
+  'Drum Roll':()=>{const b=makeBuf(2),c=b.getChannelData(0);for(let i=0;i<c.length;i++){const t=i/sr;const hit=Math.sin(t*80*Math.PI)>0.7?(Math.random()*2-1)*0.6*Math.exp(-(t%0.04)*80):0;c[i]=hit*(0.5+0.5*Math.min(t,1));}return b;},
+  'Laugh Track':()=>{const b=makeBuf(2.5),c=b.getChannelData(0);for(let i=0;i<c.length;i++){const t=i/sr;c[i]=(Math.random()*2-1)*0.3*(0.5+0.5*Math.sin(t*6))*(t<0.1?t*10:t>2?1-(t-2)*2:1);}return b;},
+  'Sad Trombone':()=>{const b=makeBuf(2),c=b.getChannelData(0);for(let i=0;i<c.length;i++){const t=i/sr;const f=350-100*t;c[i]=Math.sin(2*Math.PI*f*t)*0.5*(t<1.8?1:1-(t-1.8)*5);}return b;},
+  'Vine Boom':()=>{const b=makeBuf(1),c=b.getChannelData(0);for(let i=0;i<c.length;i++){const t=i/sr;c[i]=Math.sin(2*Math.PI*60*t+10*Math.exp(-t*8))*Math.exp(-t*4)*0.9;}return b;},
+  // Host/MC
+  'Welcome':()=>{const b=makeBuf(1),c=b.getChannelData(0);for(let i=0;i<c.length;i++){const t=i/sr;c[i]=(Math.sin(2*Math.PI*523*t)+Math.sin(2*Math.PI*659*t)*0.5)*0.3*Math.exp(-t*2);}return b;},
+  'Goodbye':()=>{const b=makeBuf(1.2),c=b.getChannelData(0);for(let i=0;i<c.length;i++){const t=i/sr;c[i]=Math.sin(2*Math.PI*(400-100*t)*t)*0.4*Math.exp(-t*1.5);}return b;},
+  'Transition':()=>{const b=makeBuf(0.8),c=b.getChannelData(0);for(let i=0;i<c.length;i++){const t=i/sr;c[i]=Math.sin(2*Math.PI*(300+800*t)*t)*0.4*Math.exp(-t*3);}return b;},
+  'Countdown 3-2-1':()=>{const b=makeBuf(3),c=b.getChannelData(0);for(let i=0;i<c.length;i++){const t=i/sr;const seg=Math.floor(t);const lt=t-seg;const f=[440,523,659][seg]||659;c[i]=Math.sin(2*Math.PI*f*lt)*0.4*(lt<0.5?1:Math.exp(-(lt-0.5)*6));}return b;},
+  'Breaking News':()=>{const b=makeBuf(1.5),c=b.getChannelData(0);for(let i=0;i<c.length;i++){const t=i/sr;c[i]=(Math.sin(2*Math.PI*880*t)+Math.sin(2*Math.PI*1100*t)*0.5+Math.sin(2*Math.PI*660*t)*0.3)*0.25*(t<0.05?t*20:1)*Math.exp(-t*1.2);}return b;},
+  'Suspense':()=>{const b=makeBuf(3),c=b.getChannelData(0);for(let i=0;i<c.length;i++){const t=i/sr;c[i]=(Math.sin(2*Math.PI*100*t)*Math.sin(2*Math.PI*0.5*t)+Math.sin(2*Math.PI*150*t)*0.3)*0.3*(0.5+0.5*Math.sin(t*2));}return b;},
+  'Ta-da':()=>{const b=makeBuf(1),c=b.getChannelData(0);for(let i=0;i<c.length;i++){const t=i/sr;const f=t<0.3?392:t<0.5?494:523;c[i]=Math.sin(2*Math.PI*f*t)*0.5*(t>0.8?1-(t-0.8)*5:1);}return b;},
+  'Whoosh':()=>{const b=makeBuf(0.7),c=b.getChannelData(0);for(let i=0;i<c.length;i++){const t=i/sr;c[i]=(Math.random()*2-1)*0.5*Math.sin(Math.PI*t/0.7)*Math.exp(-Math.abs(t-0.35)*8);}return b;},
+  'Pop':()=>{const b=makeBuf(0.3),c=b.getChannelData(0);for(let i=0;i<c.length;i++){const t=i/sr;c[i]=Math.sin(2*Math.PI*800*t*Math.exp(-t*20))*Math.exp(-t*15)*0.8;}return b;},
+  'Ding':()=>{const b=makeBuf(1.5),c=b.getChannelData(0);for(let i=0;i<c.length;i++){const t=i/sr;c[i]=Math.sin(2*Math.PI*1200*t)*Math.exp(-t*3)*0.6;}return b;},
+  // Comedy
+  'Bruh':()=>{const b=makeBuf(0.6),c=b.getChannelData(0);for(let i=0;i<c.length;i++){const t=i/sr;c[i]=(Math.sin(2*Math.PI*120*t)+Math.sin(2*Math.PI*180*t)*0.5)*Math.exp(-t*3)*0.6;}return b;},
+  'Fart':()=>{const b=makeBuf(0.8),c=b.getChannelData(0);for(let i=0;i<c.length;i++){const t=i/sr;c[i]=(Math.random()*2-1)*0.4*Math.sin(2*Math.PI*80*t+3*Math.sin(2*Math.PI*5*t))*Math.exp(-t*2);}return b;},
+  'Record Scratch':()=>{const b=makeBuf(0.5),c=b.getChannelData(0);for(let i=0;i<c.length;i++){const t=i/sr;c[i]=(Math.random()*2-1)*0.6*Math.exp(-t*6)*Math.sin(t*200);}return b;},
+  'Crickets':()=>{const b=makeBuf(2),c=b.getChannelData(0);for(let i=0;i<c.length;i++){const t=i/sr;c[i]=Math.sin(2*Math.PI*4500*t)*0.2*(Math.sin(t*40)>0.8?1:0);}return b;},
+  'Boing':()=>{const b=makeBuf(0.8),c=b.getChannelData(0);for(let i=0;i<c.length;i++){const t=i/sr;c[i]=Math.sin(2*Math.PI*(500+300*Math.sin(t*15))*t)*Math.exp(-t*4)*0.6;}return b;},
+  'Slide Whistle':()=>{const b=makeBuf(1),c=b.getChannelData(0);for(let i=0;i<c.length;i++){const t=i/sr;c[i]=Math.sin(2*Math.PI*(400+1200*t)*t)*0.4*Math.exp(-t*1.5);}return b;},
+  'Ba Dum Tss':()=>{const b=makeBuf(1.2),c=b.getChannelData(0);for(let i=0;i<c.length;i++){const t=i/sr;let v=0;if(t<0.15)v=Math.sin(2*Math.PI*150*t)*Math.exp(-t*20);else if(t>0.3&&t<0.45)v=Math.sin(2*Math.PI*200*(t-0.3))*Math.exp(-(t-0.3)*20);else if(t>0.6&&t<1.2)v=(Math.random()*2-1)*0.5*Math.exp(-(t-0.6)*4);c[i]=v*0.6;}return b;},
+  'Fail Horn':()=>{const b=makeBuf(1.5),c=b.getChannelData(0);for(let i=0;i<c.length;i++){const t=i/sr;const f=200-30*t;c[i]=(Math.sin(2*Math.PI*f*t)+Math.sin(2*Math.PI*f*1.5*t)*0.3)*0.4*(t<1.3?1:1-(t-1.3)*5);}return b;},
+  'Cartoon Run':()=>{const b=makeBuf(1),c=b.getChannelData(0);for(let i=0;i<c.length;i++){const t=i/sr;c[i]=Math.sin(2*Math.PI*(800+400*Math.sin(t*30))*t)*0.3*Math.exp(-t*1.5);}return b;},
+  'Evil Laugh':()=>{const b=makeBuf(2),c=b.getChannelData(0);for(let i=0;i<c.length;i++){const t=i/sr;c[i]=(Math.sin(2*Math.PI*150*t)+Math.sin(2*Math.PI*200*t)*0.3)*0.4*(0.5+0.5*Math.sin(t*8))*(t>1.8?1-(t-1.8)*5:1);}return b;},
+  // Ambient
+  'Rain':()=>{const b=makeBuf(4),c=b.getChannelData(0);for(let i=0;i<c.length;i++){c[i]=(Math.random()*2-1)*0.15*(0.7+0.3*Math.sin(i/sr*0.5));}return b;},
+  'Ocean Waves':()=>{const b=makeBuf(4),c=b.getChannelData(0);for(let i=0;i<c.length;i++){const t=i/sr;c[i]=(Math.random()*2-1)*0.1*(0.5+0.5*Math.sin(t*0.8));}return b;},
+  'Fireplace':()=>{const b=makeBuf(4),c=b.getChannelData(0);for(let i=0;i<c.length;i++){const crackle=Math.random()>0.995?Math.random()*0.6:0;c[i]=(Math.random()*2-1)*0.08+crackle;}return b;},
+  'Forest Birds':()=>{const b=makeBuf(4),c=b.getChannelData(0);for(let i=0;i<c.length;i++){const t=i/sr;const bird=Math.sin(2*Math.PI*(2000+500*Math.sin(t*10))*t)*0.1*(Math.sin(t*2)>0.9?1:0);c[i]=(Math.random()*2-1)*0.04+bird;}return b;},
+  'Thunderstorm':()=>{const b=makeBuf(4),c=b.getChannelData(0);for(let i=0;i<c.length;i++){const t=i/sr;const thunder=t>1.5&&t<2?(Math.random()*2-1)*0.7*Math.exp(-(t-1.5)*3):0;c[i]=(Math.random()*2-1)*0.12+thunder;}return b;},
+  'Coffee Shop':()=>{const b=makeBuf(4),c=b.getChannelData(0);for(let i=0;i<c.length;i++){const t=i/sr;c[i]=(Math.random()*2-1)*0.06+Math.sin(2*Math.PI*250*t)*0.02*(Math.sin(t*3)>0.7?1:0);}return b;},
+  'Wind':()=>{const b=makeBuf(4),c=b.getChannelData(0);for(let i=0;i<c.length;i++){const t=i/sr;c[i]=(Math.random()*2-1)*0.12*(0.5+0.5*Math.sin(t*0.3));}return b;},
+  'River Stream':()=>{const b=makeBuf(4),c=b.getChannelData(0);for(let i=0;i<c.length;i++){const t=i/sr;c[i]=(Math.random()*2-1)*0.1*(0.8+0.2*Math.sin(t*2));}return b;},
+  'Night Crickets':()=>{const b=makeBuf(4),c=b.getChannelData(0);for(let i=0;i<c.length;i++){const t=i/sr;c[i]=Math.sin(2*Math.PI*5000*t)*0.08*(Math.sin(t*25)>0.85?1:0)+(Math.random()*2-1)*0.02;}return b;},
+  'Campfire':()=>{const b=makeBuf(4),c=b.getChannelData(0);for(let i=0;i<c.length;i++){const crackle=Math.random()>0.993?Math.random()*0.5:0;c[i]=(Math.random()*2-1)*0.06+crackle;}return b;},
+  // Music
+  'Lo-fi Beat':()=>{const b=makeBuf(4),c=b.getChannelData(0);const bpm=80,bl=60/bpm;for(let i=0;i<c.length;i++){const t=i/sr;const beat=t%bl;const kick=beat<0.08?Math.sin(2*Math.PI*80*(1-beat*10)*beat)*Math.exp(-beat*40):0;const hat=beat>bl/2&&beat<bl/2+0.02?(Math.random()*2-1)*0.3*Math.exp(-(beat-bl/2)*100):0;c[i]=(kick*0.7+hat)*0.6;}return b;},
+  'Upbeat Funk':()=>{const b=makeBuf(4),c=b.getChannelData(0);const bpm=120,bl=60/bpm;for(let i=0;i<c.length;i++){const t=i/sr;const beat=t%bl;const kick=beat<0.05?Math.sin(2*Math.PI*100*(1-beat*15)*beat)*Math.exp(-beat*50):0;const snare=beat>bl/2&&beat<bl/2+0.04?(Math.random()*2-1)*0.4*Math.exp(-(beat-bl/2)*60):0;c[i]=(kick*0.8+snare)*0.5;}return b;},
+  'Chill Synth':()=>{const b=makeBuf(4),c=b.getChannelData(0);const notes=[261,293,329,349];for(let i=0;i<c.length;i++){const t=i/sr;const idx=Math.floor(t*2)%4;c[i]=Math.sin(2*Math.PI*notes[idx]*t)*0.3*(0.5+0.5*Math.sin(t*0.5));}return b;},
+  'Jazz Piano':()=>{const b=makeBuf(4),c=b.getChannelData(0);const notes=[262,330,392,349,294,262];for(let i=0;i<c.length;i++){const t=i/sr;const idx=Math.floor(t*1.5)%6;const lt=t-Math.floor(t*1.5)/1.5;c[i]=Math.sin(2*Math.PI*notes[idx]*t)*0.35*Math.exp(-lt*2);}return b;},
+  'Epic Orchestra':()=>{const b=makeBuf(4),c=b.getChannelData(0);for(let i=0;i<c.length;i++){const t=i/sr;c[i]=(Math.sin(2*Math.PI*130*t)+Math.sin(2*Math.PI*196*t)*0.7+Math.sin(2*Math.PI*262*t)*0.5)*0.2*(0.3+0.7*Math.min(t/2,1));}return b;},
+  'Acoustic Guitar':()=>{const b=makeBuf(3),c=b.getChannelData(0);const notes=[330,392,494,392];for(let i=0;i<c.length;i++){const t=i/sr;const idx=Math.floor(t*2)%4;const lt=t%(0.5);c[i]=Math.sin(2*Math.PI*notes[idx]*t)*0.4*Math.exp(-lt*4)*(1+0.3*Math.sin(2*Math.PI*notes[idx]*2*t));}return b;},
+  'EDM Drop':()=>{const b=makeBuf(4),c=b.getChannelData(0);const bpm=140,bl=60/bpm;for(let i=0;i<c.length;i++){const t=i/sr;const beat=t%bl;const kick=beat<0.04?Math.sin(2*Math.PI*60*(1-beat*20)*beat)*Math.exp(-beat*60)*0.9:0;const synth=Math.sin(2*Math.PI*220*t*(1+0.5*Math.sin(t*4)))*0.2;c[i]=(kick+synth)*0.5;}return b;},
+  'Hip Hop Beat':()=>{const b=makeBuf(4),c=b.getChannelData(0);const bpm=90,bl=60/bpm;for(let i=0;i<c.length;i++){const t=i/sr;const beat=t%bl;const kick=beat<0.06?Math.sin(2*Math.PI*70*beat)*Math.exp(-beat*35)*0.8:0;const snare=beat>bl*0.5&&beat<bl*0.5+0.03?(Math.random()*2-1)*0.4*Math.exp(-(beat-bl*0.5)*80):0;const hat=beat%(bl/4)<0.01?(Math.random()*2-1)*0.15:0;c[i]=(kick+snare+hat)*0.6;}return b;},
+  'Reggae Vibe':()=>{const b=makeBuf(4),c=b.getChannelData(0);const bpm=80,bl=60/bpm;for(let i=0;i<c.length;i++){const t=i/sr;const beat=t%bl;const offbeat=beat>bl*0.4&&beat<bl*0.6?Math.sin(2*Math.PI*330*t)*0.3*Math.exp(-(beat-bl*0.4)*20):0;const bass=Math.sin(2*Math.PI*110*t)*0.2*(beat<0.1?1:0.1);c[i]=(offbeat+bass)*0.6;}return b;},
+  'Classical Piano':()=>{const b=makeBuf(4),c=b.getChannelData(0);const notes=[262,294,330,349,392,349,330,294];for(let i=0;i<c.length;i++){const t=i/sr;const idx=Math.floor(t*2)%8;const lt=t%(0.5);c[i]=Math.sin(2*Math.PI*notes[idx]*t)*0.4*Math.exp(-lt*3);}return b;},
+  // Animals
+  'Dog Bark':()=>{const b=makeBuf(0.5),c=b.getChannelData(0);for(let i=0;i<c.length;i++){const t=i/sr;c[i]=(Math.random()*2-1)*0.3*Math.exp(-t*8)+Math.sin(2*Math.PI*400*t)*0.5*Math.exp(-t*10);}return b;},
+  'Cat Meow':()=>{const b=makeBuf(0.8),c=b.getChannelData(0);for(let i=0;i<c.length;i++){const t=i/sr;c[i]=Math.sin(2*Math.PI*(600+200*Math.sin(t*5))*t)*0.4*(t<0.1?t*10:1)*Math.exp(-t*2);}return b;},
+  'Rooster':()=>{const b=makeBuf(1.5),c=b.getChannelData(0);for(let i=0;i<c.length;i++){const t=i/sr;c[i]=Math.sin(2*Math.PI*(800+400*t)*t)*0.4*(Math.sin(t*10)>0?1:0.3)*Math.exp(-t*0.8);}return b;},
+  'Horse Neigh':()=>{const b=makeBuf(1.2),c=b.getChannelData(0);for(let i=0;i<c.length;i++){const t=i/sr;c[i]=Math.sin(2*Math.PI*(500+300*Math.sin(t*8))*t)*0.4*Math.exp(-t*1.5);}return b;},
+  'Duck Quack':()=>{const b=makeBuf(0.4),c=b.getChannelData(0);for(let i=0;i<c.length;i++){const t=i/sr;c[i]=Math.sin(2*Math.PI*800*t)*0.5*Math.exp(-t*12)*(1+0.5*Math.sin(t*100));}return b;},
+  'Elephant':()=>{const b=makeBuf(1.5),c=b.getChannelData(0);for(let i=0;i<c.length;i++){const t=i/sr;c[i]=Math.sin(2*Math.PI*(200+500*t)*t)*0.5*Math.exp(-t*1)*(0.5+0.5*Math.sin(t*15));}return b;},
+  'Lion Roar':()=>{const b=makeBuf(2),c=b.getChannelData(0);for(let i=0;i<c.length;i++){const t=i/sr;c[i]=(Math.sin(2*Math.PI*100*t)+Math.random()*0.3)*0.4*(t<0.2?t*5:1)*Math.exp(-t*0.8);}return b;},
+  'Monkey':()=>{const b=makeBuf(1),c=b.getChannelData(0);for(let i=0;i<c.length;i++){const t=i/sr;c[i]=Math.sin(2*Math.PI*(1000+500*Math.sin(t*20))*t)*0.3*(Math.sin(t*12)>0?1:0.2);}return b;},
+  'Crow':()=>{const b=makeBuf(0.8),c=b.getChannelData(0);for(let i=0;i<c.length;i++){const t=i/sr;c[i]=(Math.random()*0.3+Math.sin(2*Math.PI*600*t)*0.4)*Math.exp(-t*3)*(Math.sin(t*15)>0?1:0.3);}return b;},
+  'Wolf Howl':()=>{const b=makeBuf(2.5),c=b.getChannelData(0);for(let i=0;i<c.length;i++){const t=i/sr;const f=300+200*Math.sin(t*0.8);c[i]=Math.sin(2*Math.PI*f*t)*0.4*(t<0.3?t*3:1)*(t>2?1-(t-2)*2:1);}return b;},
+  // Alerts
+  'Notification':()=>{const b=makeBuf(0.5),c=b.getChannelData(0);for(let i=0;i<c.length;i++){const t=i/sr;c[i]=(Math.sin(2*Math.PI*880*t)+Math.sin(2*Math.PI*1320*t)*0.5)*0.3*Math.exp(-t*5);}return b;},
+  'Message Received':()=>{const b=makeBuf(0.6),c=b.getChannelData(0);for(let i=0;i<c.length;i++){const t=i/sr;const f=t<0.15?800:1000;c[i]=Math.sin(2*Math.PI*f*t)*0.4*Math.exp(-t*4);}return b;},
+  'Error Sound':()=>{const b=makeBuf(0.5),c=b.getChannelData(0);for(let i=0;i<c.length;i++){const t=i/sr;c[i]=(Math.sin(2*Math.PI*200*t)+Math.sin(2*Math.PI*250*t))*0.3*Math.exp(-t*4);}return b;},
+  'Level Up':()=>{const b=makeBuf(1),c=b.getChannelData(0);for(let i=0;i<c.length;i++){const t=i/sr;const f=400+600*t;c[i]=Math.sin(2*Math.PI*f*t)*0.4*Math.exp(-t*1.5);}return b;},
+  'Achievement':()=>{const b=makeBuf(1.2),c=b.getChannelData(0);for(let i=0;i<c.length;i++){const t=i/sr;let f=523;if(t>0.2)f=659;if(t>0.4)f=784;c[i]=Math.sin(2*Math.PI*f*t)*0.4*(t>1?1-(t-1)*5:1);}return b;},
+  'Coin Collect':()=>{const b=makeBuf(0.4),c=b.getChannelData(0);for(let i=0;i<c.length;i++){const t=i/sr;const f=t<0.1?988:1320;c[i]=Math.sin(2*Math.PI*f*t)*0.4*Math.exp(-t*6);}return b;},
+  'Power Up':()=>{const b=makeBuf(0.8),c=b.getChannelData(0);for(let i=0;i<c.length;i++){const t=i/sr;c[i]=Math.sin(2*Math.PI*(300+1000*t)*t)*0.4*Math.exp(-t*2);}return b;},
+  'Game Over':()=>{const b=makeBuf(1.5),c=b.getChannelData(0);for(let i=0;i<c.length;i++){const t=i/sr;const f=400-200*t;c[i]=Math.sin(2*Math.PI*f*t)*0.4*(t<1.3?1:1-(t-1.3)*5);}return b;},
+  'Victory':()=>{const b=makeBuf(1.5),c=b.getChannelData(0);for(let i=0;i<c.length;i++){const t=i/sr;const notes=[523,659,784,1047];const idx=Math.min(Math.floor(t*3),3);c[i]=Math.sin(2*Math.PI*notes[idx]*t)*0.4*(t>1.3?1-(t-1.3)*5:1);}return b;},
+  'Alarm':()=>{const b=makeBuf(1.5),c=b.getChannelData(0);for(let i=0;i<c.length;i++){const t=i/sr;c[i]=Math.sin(2*Math.PI*(800+200*Math.sin(t*10))*t)*0.4;}return b;}
+};
+
+// CATEGORY DATA
+const CATEGORIES = {
+  'Host/MC':['Welcome','Goodbye','Transition','Countdown 3-2-1','Breaking News','Suspense','Ta-da','Whoosh','Pop','Ding'],
+  'Comedy':['Bruh','Fart','Record Scratch','Crickets','Boing','Slide Whistle','Ba Dum Tss','Fail Horn','Cartoon Run','Evil Laugh'],
+  'Ambient':['Rain','Ocean Waves','Fireplace','Forest Birds','Thunderstorm','Coffee Shop','Wind','River Stream','Night Crickets','Campfire'],
+  'Music':['Lo-fi Beat','Upbeat Funk','Chill Synth','Jazz Piano','Epic Orchestra','Acoustic Guitar','EDM Drop','Hip Hop Beat','Reggae Vibe','Classical Piano'],
+  'Animals':['Dog Bark','Cat Meow','Rooster','Horse Neigh','Duck Quack','Elephant','Lion Roar','Monkey','Crow','Wolf Howl'],
+  'Alerts':['Notification','Message Received','Error Sound','Level Up','Achievement','Coin Collect','Power Up','Game Over','Victory','Alarm'],
+  'Custom':[]
+};
+const QUICK_SOUNDS = ['Applause','Airhorn','Drum Roll','Laugh Track','Sad Trombone','Vine Boom'];
+
+// Buffer cache
+const bufferCache = {};
+function getBuffer(name){
+  if(!bufferCache[name]&&GENERATORS[name])bufferCache[name]=GENERATORS[name]();
+  return bufferCache[name]||null;
+}
+
+// Uploaded buffers
+const uploadedBuffers = {};
+
+// === PLAYBACK ===
+function playSound(name, el){
+  resumeCtx();
+  const key = name;
+  if(activeSources[key]){stopSound(key);return;}
+  const buffer = uploadedBuffers[name] || getBuffer(name);
+  if(!buffer)return;
+  const source = audioCtx.createBufferSource();
+  source.buffer = buffer;
+  source.playbackRate.value = currentPitch;
+  source.loop = loopSet.has(name);
+  const gain = audioCtx.createGain();
+  gain.gain.value = masterGain.gain.value;
+  source.connect(gain);
+  gain.connect(masterGain);
+  source.start();
+  activeSources[key] = {source, gain};
+  source.onended = ()=>{if(activeSources[key]?.source===source){delete activeSources[key];updateAllButtons();}};
+  updateAllButtons();
+}
+
+function stopSound(key){
+  if(activeSources[key]){try{activeSources[key].source.stop();}catch(e){}delete activeSources[key];updateAllButtons();}
+}
+
+function stopAll(){
+  Object.keys(activeSources).forEach(key=>{
+    try{activeSources[key].source.stop();}catch(e){}
+    delete activeSources[key];
+  });
+  importedAudios.forEach(item=>item.playing=false);
+  updateAllButtons();
+  renderImportedList();
+}
+
+// Loop management
+const loopSet = new Set();
+function toggleLoop(name){
+  if(loopSet.has(name)){loopSet.delete(name);}else{loopSet.add(name);}
+  if(activeSources[name])activeSources[name].source.loop=loopSet.has(name);
+  updateAllButtons();
+}
+
+// === UI STATE ===
+let activeTab = 'Host/MC';
+
+// === BOARDS (localStorage) ===
+const STORAGE_KEY = 'soundboard_pro_v2';
+function uuid(){return crypto.randomUUID?crypto.randomUUID():'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g,c=>{const r=Math.random()*16|0;return(c==='x'?r:(r&0x3|0x8)).toString(16);});}
+
+function loadBoards(){
+  try{const d=JSON.parse(localStorage.getItem(STORAGE_KEY));if(d&&d.boards&&d.boards.length)return d;}catch(e){}
+  const data={boards:[{id:uuid(),name:'Default Board',created_at:new Date().toISOString(),pads:Object.entries(CATEGORIES).flatMap(([cat,sounds])=>sounds.map(s=>({id:uuid(),name:s,category:cat,audio_url:'generated',volume:0.8,loop:false})))}]};
+  saveBoards(data);
+  return data;
+}
+function saveBoards(data){localStorage.setItem(STORAGE_KEY,JSON.stringify(data));}
+let appData = loadBoards();
+let currentBoardId = appData.boards[0].id;
+function getCurrentBoard(){return appData.boards.find(b=>b.id===currentBoardId)||appData.boards[0];}
+
+function switchBoard(id){currentBoardId=id;renderAll();}
+function newBoard(){
+  const name=prompt('Board name:');
+  if(!name)return;
+  const board={id:uuid(),name,created_at:new Date().toISOString(),pads:[]};
+  appData.boards.push(board);
+  currentBoardId=board.id;
+  saveBoards(appData);
+  renderAll();
+}
+
+// === VOLUME & PITCH ===
+document.getElementById('volume-ctrl').addEventListener('input',function(){
+  const v=Math.max(0,Math.min(100,parseInt(this.value)||0))/100;
+  masterGain.gain.value=v;
+});
+
+function setPitch(val,btn){
+  currentPitch=val;
+  document.querySelectorAll('.pitch-btn').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  Object.values(activeSources).forEach(s=>{s.source.playbackRate.value=val;});
+}
+
+// === FILE UPLOAD (Custom tab) ===
+function uploadSound(){document.getElementById('file-input').click();}
+document.getElementById('file-input').addEventListener('change',async function(e){
+  const files=Array.from(e.target.files);
+  for(const file of files){
+    const arrayBuf=await file.arrayBuffer();
+    const audioBuf=await audioCtx.decodeAudioData(arrayBuf);
+    const name=file.name.replace(/\.[^.]+$/,'');
+    uploadedBuffers[name]=audioBuf;
+    CATEGORIES['Custom'].push(name);
+    const board=getCurrentBoard();
+    board.pads.push({id:uuid(),name,category:'Custom',audio_url:'local-upload',volume:0.8,loop:false});
+  }
+  saveBoards(appData);
+  if(activeTab==='Custom')renderGrid();
+  e.target.value='';
+});
+
+// === IMPORT AUDIO PANEL ===
+const importedAudios = []; // {id, name, buffer, volume, pitch, loop, category, playing}
+
+function toggleImportPanel(){
+  document.getElementById('import-panel').classList.toggle('open');
+}
+
+function importAudioFiles(){document.getElementById('import-file-input').click();}
+document.getElementById('import-file-input').addEventListener('change', async function(e){
+  const files = Array.from(e.target.files);
+  for(const file of files){
+    try{
+      const arrayBuf = await file.arrayBuffer();
+      const audioBuf = await audioCtx.decodeAudioData(arrayBuf);
+      const name = file.name.replace(/\.[^.]+$/,'');
+      const item = {
+        id: uuid(),
+        name: name,
+        buffer: audioBuf,
+        volume: 0.8,
+        pitch: 1,
+        loop: false,
+        category: 'Custom',
+        playing: false
+      };
+      importedAudios.push(item);
+    } catch(err){
+      console.error('Failed to decode:', file.name, err);
+    }
+  }
+  renderImportedList();
+  e.target.value='';
+});
+
+function renderImportedList(){
+  const el = document.getElementById('imported-list');
+  if(importedAudios.length === 0){
+    el.innerHTML = '<div class="import-empty">No imported audio yet. Click "Import Files" to add your own sounds.</div>';
+    return;
+  }
+  el.innerHTML = importedAudios.map((item, idx) => {
+    const isPlaying = !!activeSources['import_'+item.id];
+    const isLooping = item.loop;
+    return `<div class="imported-item" data-id="${item.id}">
+      <span class="ii-name" ondblclick="renameImported('${item.id}', this)" title="Double-click to rename">${item.name}</span>
+      <button class="ii-ctrl-btn${isPlaying?' playing':''}" onclick="toggleImportedPlay('${item.id}')">${isPlaying?'⏹ Stop':'▶ Play'}</button>
+      <button class="ii-ctrl-btn${isLooping?' loop-on':''}" onclick="toggleImportedLoop('${item.id}')">${isLooping?'🔁 On':'🔁 Off'}</button>
+      <label>Vol:<input type="range" min="0" max="100" value="${Math.round(item.volume*100)}" oninput="setImportedVolume('${item.id}',this.value)"></label>
+      <label>Pitch:<select onchange="setImportedPitch('${item.id}',this.value)">
+        <option value="0.5"${item.pitch===0.5?' selected':''}>0.5x</option>
+        <option value="0.75"${item.pitch===0.75?' selected':''}>0.75x</option>
+        <option value="1"${item.pitch===1?' selected':''}>1x</option>
+        <option value="1.25"${item.pitch===1.25?' selected':''}>1.25x</option>
+        <option value="1.5"${item.pitch===1.5?' selected':''}>1.5x</option>
+        <option value="2"${item.pitch===2?' selected':''}>2x</option>
+      </select></label>
+      <button class="ii-ctrl-btn" onclick="addImportedToBoard('${item.id}')" title="Add to current board grid">+ Board</button>
+      <button class="ii-ctrl-btn delete" onclick="deleteImported('${item.id}')">✕</button>
+    </div>`;
+  }).join('');
+}
+
+function toggleImportedPlay(id){
+  resumeCtx();
+  const key = 'import_'+id;
+  const item = importedAudios.find(a=>a.id===id);
+  if(!item) return;
+  if(activeSources[key]){
+    try{activeSources[key].source.stop();}catch(e){}
+    delete activeSources[key];
+    item.playing = false;
+    renderImportedList();
+    return;
+  }
+  const source = audioCtx.createBufferSource();
+  source.buffer = item.buffer;
+  source.playbackRate.value = item.pitch;
+  source.loop = item.loop;
+  const gain = audioCtx.createGain();
+  gain.gain.value = item.volume;
+  source.connect(gain);
+  gain.connect(masterGain);
+  source.start();
+  activeSources[key] = {source, gain};
+  item.playing = true;
+  source.onended = ()=>{
+    if(activeSources[key]?.source===source){
+      delete activeSources[key];
+      item.playing = false;
+      renderImportedList();
+    }
+  };
+  renderImportedList();
+}
+
+function toggleImportedLoop(id){
+  const item = importedAudios.find(a=>a.id===id);
+  if(!item) return;
+  item.loop = !item.loop;
+  const key = 'import_'+id;
+  if(activeSources[key]) activeSources[key].source.loop = item.loop;
+  renderImportedList();
+}
+
+function setImportedVolume(id, val){
+  const item = importedAudios.find(a=>a.id===id);
+  if(!item) return;
+  item.volume = val/100;
+  const key = 'import_'+id;
+  if(activeSources[key]) activeSources[key].gain.gain.value = item.volume;
+}
+
+function setImportedPitch(id, val){
+  const item = importedAudios.find(a=>a.id===id);
+  if(!item) return;
+  item.pitch = parseFloat(val);
+  const key = 'import_'+id;
+  if(activeSources[key]) activeSources[key].source.playbackRate.value = item.pitch;
+}
+
+function renameImported(id, el){
+  const item = importedAudios.find(a=>a.id===id);
+  if(!item) return;
+  const input = document.createElement('input');
+  input.value = item.name;
+  input.onblur = ()=>{ item.name = input.value || item.name; renderImportedList(); };
+  input.onkeydown = (e)=>{ if(e.key==='Enter'){input.blur();} if(e.key==='Escape'){renderImportedList();} };
+  el.innerHTML = '';
+  el.appendChild(input);
+  input.focus();
+  input.select();
+}
+
+function addImportedToBoard(id){
+  const item = importedAudios.find(a=>a.id===id);
+  if(!item) return;
+  // Add buffer so it can be played from the grid
+  uploadedBuffers[item.name] = item.buffer;
+  if(!CATEGORIES['Custom'].includes(item.name)) CATEGORIES['Custom'].push(item.name);
+  const board = getCurrentBoard();
+  board.pads.push({id:uuid(),name:item.name,category:'Custom',audio_url:'imported',volume:item.volume,loop:item.loop});
+  saveBoards(appData);
+  if(activeTab==='Custom') renderGrid();
+}
+
+function deleteImported(id){
+  const key = 'import_'+id;
+  if(activeSources[key]){try{activeSources[key].source.stop();}catch(e){}delete activeSources[key];}
+  const idx = importedAudios.findIndex(a=>a.id===id);
+  if(idx>-1) importedAudios.splice(idx,1);
+  renderImportedList();
+}
+
+// === FREESOUND MODAL ===
+function openSearchModal(){document.getElementById('search-modal').classList.add('open');}
+function closeSearchModal(){document.getElementById('search-modal').classList.remove('open');}
+document.getElementById('search-modal').addEventListener('click',function(e){if(e.target===this)closeSearchModal();});
+
+const MOCK_FS_RESULTS=[
+  'Thunder Clap','Crowd Cheer','Wind Howling','Record Scratch','Synth Pad','Door Slam','Waterfall','Drum Fill','Bell Ring','Footsteps','Car Horn','Glass Break'
+];
+function doFreesoundSearch(){
+  const q=document.getElementById('fs-search-input').value.trim().toLowerCase();
+  const results=q?MOCK_FS_RESULTS.filter(r=>r.toLowerCase().includes(q)):MOCK_FS_RESULTS;
+  const el=document.getElementById('fs-results');
+  el.innerHTML=results.map(r=>`<div class="search-result-item"><span>${r}</span><button onclick="addFromSearch('${r}')">Add to Board</button></div>`).join('');
+}
+doFreesoundSearch();
+
+function addFromSearch(name){
+  // Generate a simple tone for mock
+  const b=makeBuf(1.5),c=b.getChannelData(0);
+  const freq=200+Math.random()*600;
+  for(let i=0;i<c.length;i++){const t=i/sr;c[i]=Math.sin(2*Math.PI*freq*t)*0.3*Math.exp(-t*1);}
+  uploadedBuffers[name]=b;
+  if(!CATEGORIES['Custom'].includes(name))CATEGORIES['Custom'].push(name);
+  const board=getCurrentBoard();
+  board.pads.push({id:uuid(),name,category:'Custom',audio_url:'freesound-mock',volume:0.8,loop:false});
+  saveBoards(appData);
+  if(activeTab==='Custom')renderGrid();
+  closeSearchModal();
+}
+
+// === RENDERING ===
+function renderAll(){
+  renderQuickRow();
+  renderTabs();
+  renderGrid();
+  renderBoardSelect();
+}
+
+function renderQuickRow(){
+  const el=document.getElementById('quick-row');
+  el.innerHTML=QUICK_SOUNDS.map(name=>{
+    const playing=!!activeSources[name];
+    return `<button class="quick-btn${playing?' playing':''}" onclick="playSound('${name}',this)" oncontextmenu="event.preventDefault();toggleLoop('${name}')">${name}</button>`;
+  }).join('');
+}
+
+function renderTabs(){
+  const el=document.getElementById('tabs');
+  el.innerHTML=Object.keys(CATEGORIES).map(cat=>{
+    return `<div class="tab${cat===activeTab?' active':''}" onclick="switchTab('${cat}')">${cat}</div>`;
+  }).join('');
+}
+
+function switchTab(cat){activeTab=cat;renderTabs();renderGrid();}
+
+function renderGrid(){
+  const grid=document.getElementById('sound-grid');
+  const uploadArea=document.getElementById('upload-area');
+  const customGrid=document.getElementById('custom-grid');
+  if(activeTab==='Custom'){
+    grid.style.display='none';
+    uploadArea.style.display='flex';
+    customGrid.innerHTML=CATEGORIES['Custom'].map(name=>{
+      const playing=!!activeSources[name];
+      const looping=loopSet.has(name);
+      return `<button class="sound-btn${playing?' playing':''}${looping?' looping':''}" onclick="playSound('${name}',this)" oncontextmenu="event.preventDefault();toggleLoop('${name}')">${name}</button>`;
+    }).join('');
+  } else {
+    grid.style.display='';
+    uploadArea.style.display='none';
+    const sounds=CATEGORIES[activeTab]||[];
+    grid.innerHTML=sounds.map(name=>{
+      const playing=!!activeSources[name];
+      const looping=loopSet.has(name);
+      return `<button class="sound-btn${playing?' playing':''}${looping?' looping':''}" onclick="playSound('${name}',this)" oncontextmenu="event.preventDefault();toggleLoop('${name}')">${name}</button>`;
+    }).join('');
+  }
+}
+
+function renderBoardSelect(){
+  const sel=document.getElementById('board-select');
+  sel.innerHTML=appData.boards.map(b=>`<option value="${b.id}"${b.id===currentBoardId?' selected':''}>${b.name}</option>`).join('');
+}
+
+function updateAllButtons(){
+  renderQuickRow();
+  renderGrid();
+}
+
+// === INIT ===
+renderAll();
+</script>
+</body>
+</html>
