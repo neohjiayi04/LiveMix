@@ -1,0 +1,402 @@
+/* ==========================================================================
+   1. DESIGN TOKENS & SYSTEM VARIABLES
+   ========================================================================== */
+:root {
+  /* Color Palette */
+  --bg: #0f172a;
+  --panel: #1e293b;
+  --panel2: #334155;
+  --card: #1f2937;
+  --primary: #3b82f6;
+  --primary2: #2563eb;
+  --success: #10b981;
+  --danger: #ef4444;
+  --text: #f8fafc;
+  --muted: #94a3b8;
+  --border: #475569;
+
+  /* Typography */
+  --font-sans: Inter, Segoe UI, Roboto, sans-serif;
+
+  /* Shapes & Shadows */
+  --radius: 14px;
+  --shadow: 0 8px 24px rgba(0, 0, 0, .25);
+}
+
+/* ==========================================================================
+   2. GLOBAL RESET & BASE STYLES
+   ========================================================================== */
+*, *::before, *::after {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: var(--font-sans);
+  background: var(--bg);
+  color: var(--text);
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+button, input, select {
+  font: inherit;
+}
+
+/* Form Input Overrides */
+input, select {
+  background: #0b1220;
+  color: white;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 8px;
+}
+
+/* Scrollbar styling */
+::-webkit-scrollbar {
+  width: 10px;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--panel2);
+  border-radius: 10px;
+}
+
+/* ==========================================================================
+   3. LAYOUT & STRUCTURAL CONTAINERS
+   ========================================================================== */
+.subtitle-row,
+.controls-row,
+.bottom-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: center;
+  padding: 12px 20px;
+  background: var(--panel);
+  border-bottom: 1px solid var(--border);
+}
+
+.grid-container {
+  flex: 1;
+  margin: 0 20px 20px;
+  padding: 18px;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 0 var(--radius) var(--radius) var(--radius);
+}
+
+.quick-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 12px;
+  padding: 0 20px 20px;
+}
+
+.sound-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(170px, 1fr));
+  gap: 16px;
+}
+
+/* Typography Layout */
+.section-label {
+  padding: 16px 20px 8px;
+  color: var(--muted);
+  font-weight: 700;
+}
+
+/* ==========================================================================
+   4. COMPONENTS
+   ========================================================================== */
+
+/* --- Title Bar --- */
+.title-bar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px 24px;
+  background: linear-gradient(90deg, var(--primary), #60a5fa);
+  box-shadow: var(--shadow);
+}
+.title-bar h1 {
+  font-size: 1.35rem;
+  font-weight: 700;
+}
+.window-btns span {
+  display: inline-block;
+  width: 14px;
+  height: 14px;
+  margin-left: 8px;
+  border-radius: 50%;
+  background: #ffffff55;
+}
+
+/* --- Navigation Tabs --- */
+.tabs {
+  display: flex;
+  gap: 8px;
+  padding: 0 20px;
+  margin-top: 12px;
+}
+.tab {
+  padding: 10px 18px;
+  background: var(--panel2);
+  color: var(--muted);
+  border-radius: 12px 12px 0 0;
+  cursor: pointer;
+}
+
+/* --- Interactive Action Buttons --- */
+.quick-btn,
+.sound-btn {
+  background: var(--card);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  min-height: 84px;
+  padding: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: transform 0.2s, border-color 0.2s;
+}
+
+.sound-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+}
+
+/* Generic Utility Buttons */
+.upload-btn,
+.import-btn,
+.ii-ctrl-btn {
+  border: none;
+  border-radius: 10px;
+  padding: 10px 16px;
+  cursor: pointer;
+}
+.upload-btn,
+.import-btn {
+  background: var(--primary);
+  color: white;
+}
+
+/* Floating Stop Action Button */
+.stop-btn {
+  position: fixed;
+  right: 24px;
+  bottom: 24px;
+  border: none;
+  border-radius: 10px;
+  padding: 10px 16px;
+  background: var(--danger);
+  color: white;
+  font-weight: 700;
+  box-shadow: var(--shadow);
+  cursor: pointer;
+}
+
+/* --- Content & Import Cards --- */
+.import-panel {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+}
+.imported-item {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+  padding: 12px;
+  margin-bottom: 10px;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+}
+
+/* --- Overlay Modals --- */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  display: none;
+  justify-content: center;
+  align-items: center;
+  background: #0008;
+}
+.modal {
+  width: min(700px, 90vw);
+  max-height: 80vh;
+  overflow: auto;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+}
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  padding: 14px 18px;
+  background: var(--primary);
+}
+.modal-body {
+  padding: 18px;
+}
+
+/* ==========================================================================
+   5. STATE MODIFIERS (Interactive States & JS Hooks)
+   ========================================================================== */
+.quick-btn:hover,
+.sound-btn:hover {
+  transform: translateY(-2px);
+  border-color: var(--primary);
+}
+
+.tab.active {
+  background: var(--primary);
+  color: white;
+}
+
+.playing {
+  background: var(--success) !important;
+  border-color: var(--success) !important;
+}
+
+.sound-btn.looping::after {
+  content: "↻";
+  position: absolute;
+}
+
+.modal-overlay.open {
+  display: flex;
+}
+
+/* ==========================================================================
+   6. RESPONSIVE MEDIA QUERIES
+   ========================================================================== */
+@media (max-width: 768px) {
+  .title-bar,
+  .subtitle-row,
+  .controls-row,
+  .bottom-row {
+    padding: 12px;
+  }
+
+  .sound-grid {
+    grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  }
+
+  .stop-btn {
+    left: 20px;
+    right: 20px;
+  }
+}
+
+/* ==========================================================================
+   7. ENHANCEMENTS & POLISH
+   ========================================================================== */
+
+/* --- Typography Scale --- */
+:root {
+  --fs-sm: 0.85rem;
+  --fs-md: 1rem;
+  --fs-lg: 1.25rem;
+  --fs-xl: 1.5rem;
+  --lh-base: 1.5;
+  --space-sm: 8px;
+  --space-md: 16px;
+  --space-lg: 24px;
+}
+
+/* Apply line-height globally */
+body {
+  line-height: var(--lh-base);
+}
+
+/* Section labels refined */
+.section-label {
+  font-size: var(--fs-sm);
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+}
+
+/* --- Button Micro-interactions --- */
+.quick-btn,
+.sound-btn,
+.upload-btn,
+.import-btn,
+.stop-btn {
+  transition: all 0.25s ease;
+}
+
+.quick-btn:hover,
+.sound-btn:hover,
+.upload-btn:hover,
+.import-btn:hover,
+.stop-btn:hover {
+  transform: scale(1.03);
+  filter: brightness(1.1);
+}
+
+.quick-btn:focus,
+.sound-btn:focus,
+.upload-btn:focus,
+.import-btn:focus,
+.stop-btn:focus {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}
+
+/* --- Modal Animations --- */
+@keyframes fadeInScale {
+  from {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.modal-overlay.open {
+  display: flex;
+  animation: fadeInScale 0.3s ease forwards;
+  backdrop-filter: blur(4px);
+}
+
+/* --- Depth & Shadows --- */
+.panel,
+.grid-container,
+.import-panel,
+.modal {
+  box-shadow: 0 2px 6px rgba(0,0,0,.2), 0 8px 24px rgba(0,0,0,.25);
+}
+
+/* --- Tabs refinement --- */
+.tab {
+  transition: background 0.25s ease, color 0.25s ease;
+}
+.tab:hover {
+  background: var(--primary2);
+  color: white;
+}
+
+/* --- Accessibility Contrast --- */
+.muted {
+  color: #cbd5e1; /* slightly higher contrast than #94a3b8 */
+}
+
+/* --- Responsive Tabs --- */
+@media (max-width: 600px) {
+  .tabs {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .tab {
+    border-radius: var(--radius);
+  }
+}

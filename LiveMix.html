@@ -3,110 +3,13 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>SoundBoard Pro</title>
-<style>
-*{margin:0;padding:0;box-sizing:border-box}
-body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:#f0f0f0;font-size:13px;min-height:100vh;display:flex;flex-direction:column}
-/* Title bar */
-.title-bar{background:linear-gradient(to right,#1e5799,#2989d8);color:#fff;padding:6px 12px;display:flex;align-items:center;justify-content:space-between}
-.title-bar h1{font-size:14px;font-weight:700;letter-spacing:0.5px}
-.title-bar .window-btns span{display:inline-block;width:12px;height:12px;margin-left:4px;background:#fff3;border-radius:2px;cursor:pointer;text-align:center;font-size:9px;line-height:12px}
-/* Subtitle row */
-.subtitle-row{background:#e8e8e8;border-bottom:1px solid #ccc;padding:4px 12px;display:flex;align-items:center;gap:12px;font-size:11px;color:#555}
-.subtitle-row .tagline{flex:1}
-.subtitle-row label{display:flex;align-items:center;gap:3px;cursor:pointer}
-.hotkey-badge{background:#2989d8;color:#fff;padding:1px 6px;border-radius:3px;font-size:10px;font-weight:700}
-/* Quick access row */
-.section-label{font-size:11px;color:#666;padding:6px 12px 2px;font-weight:700}
-.quick-row{display:flex;gap:4px;padding:4px 12px;flex-wrap:wrap}
-.quick-btn{padding:8px 16px;background:#dceaff;border:1px solid #9cc;border-radius:3px;cursor:pointer;font-size:12px;font-weight:600;color:#1e5799;transition:background .15s}
-.quick-btn:hover{background:#b8d4f8}
-.quick-btn.playing{background:#4a90d9;color:#fff;border-color:#2a70b9}
-/* Controls row */
-.controls-row{display:flex;align-items:center;gap:10px;padding:5px 12px;border-top:1px solid #ddd;border-bottom:1px solid #ddd;background:#f8f8f8;flex-wrap:wrap}
-.controls-row label{font-size:11px;color:#555;display:flex;align-items:center;gap:4px}
-.controls-row input[type=number]{width:50px;padding:2px 4px;border:1px solid #999;border-radius:2px;font-size:12px;text-align:center}
-.controls-row select{padding:2px 4px;border:1px solid #999;border-radius:2px;font-size:11px}
-.pitch-btn{padding:2px 8px;border:1px solid #999;background:#e8e8e8;border-radius:2px;cursor:pointer;font-size:11px}
-.pitch-btn.active{background:#4a90d9;color:#fff;border-color:#2a70b9}
-.stop-btn{padding:5px 18px;background:#d9534f;color:#fff;border:1px solid #c9302c;border-radius:3px;cursor:pointer;font-size:12px;font-weight:700;margin-left:auto}
-.stop-btn:hover{background:#c9302c}
-/* Category tabs */
-.tabs{display:flex;padding:0 12px;gap:0;margin-top:6px}
-.tab{padding:5px 12px;font-size:11px;background:#ddd;border:1px solid #bbb;border-bottom:none;border-radius:4px 4px 0 0;cursor:pointer;position:relative;top:1px;color:#444}
-.tab:hover{background:#eee}
-.tab.active{background:#fff;border-bottom:1px solid #fff;color:#1e5799;font-weight:700;z-index:1}
-/* Sound grid */
-.grid-container{border:1px solid #bbb;border-radius:0 4px 4px 4px;background:#fff;margin:0 12px;padding:6px;flex:1;overflow-y:auto;min-height:200px}
-.sound-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:3px}
-.sound-btn{padding:6px 4px;background:#e8e8e8;border:1px solid #999;border-radius:2px;cursor:pointer;font-size:12px;text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;transition:background .15s;position:relative;user-select:none}
-.sound-btn:hover{background:#d8d8d8}
-.sound-btn.playing{background:#4a90d9;color:#fff;border-color:#2a70b9}
-.sound-btn.looping::after{content:"\21BB";position:absolute;top:1px;right:3px;font-size:9px;color:#d9534f}
-.sound-btn.playing.looping::after{color:#fff}
-/* Upload area in Custom tab */
-.upload-area{display:flex;flex-direction:column;align-items:center;gap:8px;padding:20px}
-.upload-btn{padding:8px 20px;background:#5cb85c;color:#fff;border:1px solid #4cae4c;border-radius:3px;cursor:pointer;font-size:12px;font-weight:600}
-.upload-btn:hover{background:#449d44}
-/* Import panel */
-.import-btn{padding:5px 14px;background:#5cb85c;color:#fff;border:1px solid #4cae4c;border-radius:3px;cursor:pointer;font-size:11px;font-weight:700}
-.import-btn:hover{background:#449d44}
-.import-panel{display:none;border:1px solid #bbb;border-top:none;background:#fff;margin:0 12px;padding:8px;max-height:260px;overflow-y:auto}
-.import-panel.open{display:block}
-.import-panel-header{display:flex;align-items:center;justify-content:space-between;padding-bottom:6px;border-bottom:1px solid #ddd;margin-bottom:6px}
-.import-panel-header h4{font-size:12px;color:#333;margin:0}
-.import-panel-header button{font-size:11px;padding:3px 10px}
-.imported-list{display:flex;flex-direction:column;gap:4px}
-.imported-item{display:flex;align-items:center;gap:6px;padding:6px 8px;background:#f9f9f9;border:1px solid #ddd;border-radius:3px;flex-wrap:wrap}
-.imported-item .ii-name{font-size:12px;font-weight:600;color:#333;min-width:100px;max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;cursor:pointer;padding:2px 4px;border:1px solid transparent;border-radius:2px}
-.imported-item .ii-name:hover{border-color:#999;background:#fff}
-.imported-item .ii-name input{width:120px;font-size:11px;padding:1px 3px;border:1px solid #4a90d9;border-radius:2px}
-.imported-item label{font-size:10px;color:#666;display:flex;align-items:center;gap:3px}
-.imported-item input[type=range]{width:60px;height:12px}
-.imported-item .ii-ctrl-btn{padding:2px 7px;font-size:10px;border:1px solid #999;background:#e8e8e8;border-radius:2px;cursor:pointer}
-.imported-item .ii-ctrl-btn:hover{background:#d0d0d0}
-.imported-item .ii-ctrl-btn.playing{background:#4a90d9;color:#fff;border-color:#2a70b9}
-.imported-item .ii-ctrl-btn.loop-on{background:#f0ad4e;color:#fff;border-color:#d9943a}
-.imported-item .ii-ctrl-btn.delete{background:#d9534f;color:#fff;border-color:#c9302c}
-.imported-item .ii-ctrl-btn.delete:hover{background:#c9302c}
-.imported-item select{font-size:10px;padding:1px 3px;border:1px solid #999;border-radius:2px}
-.import-empty{text-align:center;padding:20px;color:#999;font-size:12px}
-/* Bottom row */
-.bottom-row{display:flex;align-items:center;gap:10px;padding:6px 12px;border-top:1px solid #ccc;background:#e8e8e8;flex-wrap:wrap}
-.bottom-row label{font-size:11px;color:#555}
-.bottom-row select{padding:2px 6px;border:1px solid #999;border-radius:2px;font-size:11px}
-.bottom-row button{padding:4px 12px;background:#e8e8e8;border:1px solid #999;border-radius:3px;cursor:pointer;font-size:11px}
-.bottom-row button:hover{background:#d0d0d0}
-.bottom-row .search-fs-btn{background:#2989d8;color:#fff;border-color:#1e5799}
-.bottom-row .search-fs-btn:hover{background:#1e5799}
-/* Modal overlay */
-.modal-overlay{display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.4);z-index:100;justify-content:center;align-items:center}
-.modal-overlay.open{display:flex}
-.modal{background:#fff;border:1px solid #999;border-radius:6px;width:500px;max-width:90vw;max-height:80vh;display:flex;flex-direction:column;box-shadow:0 4px 20px rgba(0,0,0,.3)}
-.modal-header{background:linear-gradient(to right,#1e5799,#2989d8);color:#fff;padding:8px 12px;display:flex;align-items:center;justify-content:space-between;border-radius:6px 6px 0 0}
-.modal-header h3{font-size:13px}
-.modal-close{background:none;border:none;color:#fff;font-size:16px;cursor:pointer}
-.modal-body{padding:12px;overflow-y:auto;flex:1}
-.modal-body input{width:100%;padding:6px 8px;border:1px solid #999;border-radius:3px;font-size:12px;margin-bottom:8px}
-.modal-note{font-size:10px;color:#888;margin-bottom:10px;padding:6px;background:#f8f8f0;border:1px solid #eee;border-radius:3px}
-.search-results{display:flex;flex-direction:column;gap:4px}
-.search-result-item{display:flex;align-items:center;justify-content:space-between;padding:6px 8px;background:#f5f5f5;border:1px solid #ddd;border-radius:3px}
-.search-result-item span{font-size:12px}
-.search-result-item button{padding:2px 8px;background:#5cb85c;color:#fff;border:1px solid #4cae4c;border-radius:2px;cursor:pointer;font-size:10px}
-.search-result-item button:hover{background:#449d44}
-/* Responsive */
-@media(max-width:600px){
-.sound-grid{grid-template-columns:repeat(3,1fr)}
-.quick-row{gap:3px}
-.quick-btn{padding:6px 10px;font-size:11px}
-.tabs{flex-wrap:wrap}
-}
-</style>
+<title>LiveMix</title>
+  <link rel="stylesheet" href="style.css">
 </head>
 <body>
 <!-- Title Bar -->
 <div class="title-bar">
-  <h1>SoundBoard Pro 8.7</h1>
+  <h1>LiveMix</h1>
   <div class="window-btns"><span>_</span><span>&#9633;</span><span>X</span></div>
 </div>
 
