@@ -69,91 +69,99 @@
 const audioCtx=new(window.AudioContext||window.webkitAudioContext)();
 const masterGain=audioCtx.createGain();masterGain.gain.value=0.8;masterGain.connect(audioCtx.destination);
 let currentPitch=1;const activeSources={};
-function resumeCtx(){if(audioCtx.state==='suspended')audioCtx.resume();}
+// FIX: resumeCtx now returns the resume() promise (or an already-resolved one)
+// so callers can `await` it and be sure the context is actually running
+// before scheduling a source to start. Previously this fired resume()
+// and returned immediately, so start() could be called on a still-suspended
+// context and produce no audible sound.
+function resumeCtx(){
+  if(audioCtx.state==='suspended') return audioCtx.resume();
+  return Promise.resolve();
+}
 const sr=audioCtx.sampleRate;
 function makeBuf(dur){return audioCtx.createBuffer(1,sr*dur,sr);}
 function getFadeDur(){return parseFloat(document.getElementById('fade-dur').value)||3;}
 
 // === SOUND GENERATORS ===
 const GENERATORS={
-'Applause':()=>{const b=makeBuf(2),c=b.getChannelData(0);for(let i=0;i<c.length;i++){const t=i/sr;c[i]=(Math.random()*2-1)*0.4*(t<0.1?t*10:t>1.8?1-(t-1.8)*5:1)*Math.sin(t*50)*0.3+(Math.random()*2-1)*0.3;}return b;},
-'Airhorn':()=>{const b=makeBuf(1.5),c=b.getChannelData(0);for(let i=0;i<c.length;i++){const t=i/sr;c[i]=Math.sin(2*Math.PI*800*t+6*Math.sin(2*Math.PI*3*t))*Math.exp(-t*0.5)*0.8;}return b;},
-'Drum Roll':()=>{const b=makeBuf(2),c=b.getChannelData(0);for(let i=0;i<c.length;i++){const t=i/sr;const hit=Math.sin(t*80*Math.PI)>0.7?(Math.random()*2-1)*0.6*Math.exp(-(t%0.04)*80):0;c[i]=hit*(0.5+0.5*Math.min(t,1));}return b;},
-'Laugh Track':()=>{const b=makeBuf(2.5),c=b.getChannelData(0);for(let i=0;i<c.length;i++){const t=i/sr;c[i]=(Math.random()*2-1)*0.3*(0.5+0.5*Math.sin(t*6))*(t<0.1?t*10:t>2?1-(t-2)*2:1);}return b;},
-'Sad Trombone':()=>{const b=makeBuf(2),c=b.getChannelData(0);for(let i=0;i<c.length;i++){const t=i/sr;const f=350-100*t;c[i]=Math.sin(2*Math.PI*f*t)*0.5*(t<1.8?1:1-(t-1.8)*5);}return b;},
-'Vine Boom':()=>{const b=makeBuf(1),c=b.getChannelData(0);for(let i=0;i<c.length;i++){const t=i/sr;c[i]=Math.sin(2*Math.PI*60*t+10*Math.exp(-t*8))*Math.exp(-t*4)*0.9;}return b;},
-'Welcome':()=>{const b=makeBuf(1),c=b.getChannelData(0);for(let i=0;i<c.length;i++){const t=i/sr;c[i]=(Math.sin(2*Math.PI*523*t)+Math.sin(2*Math.PI*659*t)*0.5)*0.3*Math.exp(-t*2);}return b;},
-'Goodbye':()=>{const b=makeBuf(1.2),c=b.getChannelData(0);for(let i=0;i<c.length;i++){const t=i/sr;c[i]=Math.sin(2*Math.PI*(400-100*t)*t)*0.4*Math.exp(-t*1.5);}return b;},
-'Transition':()=>{const b=makeBuf(0.8),c=b.getChannelData(0);for(let i=0;i<c.length;i++){const t=i/sr;c[i]=Math.sin(2*Math.PI*(300+800*t)*t)*0.4*Math.exp(-t*3);}return b;},
-'Countdown 3-2-1':()=>{const b=makeBuf(3),c=b.getChannelData(0);for(let i=0;i<c.length;i++){const t=i/sr;const seg=Math.floor(t);const lt=t-seg;const f=[440,523,659][seg]||659;c[i]=Math.sin(2*Math.PI*f*lt)*0.4*(lt<0.5?1:Math.exp(-(lt-0.5)*6));}return b;},
-'Breaking News':()=>{const b=makeBuf(1.5),c=b.getChannelData(0);for(let i=0;i<c.length;i++){const t=i/sr;c[i]=(Math.sin(2*Math.PI*880*t)+Math.sin(2*Math.PI*1100*t)*0.5+Math.sin(2*Math.PI*660*t)*0.3)*0.25*(t<0.05?t*20:1)*Math.exp(-t*1.2);}return b;},
-'Suspense':()=>{const b=makeBuf(3),c=b.getChannelData(0);for(let i=0;i<c.length;i++){const t=i/sr;c[i]=(Math.sin(2*Math.PI*100*t)*Math.sin(2*Math.PI*0.5*t)+Math.sin(2*Math.PI*150*t)*0.3)*0.3*(0.5+0.5*Math.sin(t*2));}return b;},
-'Ta-da':()=>{const b=makeBuf(1),c=b.getChannelData(0);for(let i=0;i<c.length;i++){const t=i/sr;const f=t<0.3?392:t<0.5?494:523;c[i]=Math.sin(2*Math.PI*f*t)*0.5*(t>0.8?1-(t-0.8)*5:1);}return b;},
-'Whoosh':()=>{const b=makeBuf(0.7),c=b.getChannelData(0);for(let i=0;i<c.length;i++){const t=i/sr;c[i]=(Math.random()*2-1)*0.5*Math.sin(Math.PI*t/0.7)*Math.exp(-Math.abs(t-0.35)*8);}return b;},
-'Pop':()=>{const b=makeBuf(0.3),c=b.getChannelData(0);for(let i=0;i<c.length;i++){const t=i/sr;c[i]=Math.sin(2*Math.PI*800*t*Math.exp(-t*20))*Math.exp(-t*15)*0.8;}return b;},
-'Ding':()=>{const b=makeBuf(1.5),c=b.getChannelData(0);for(let i=0;i<c.length;i++){const t=i/sr;c[i]=Math.sin(2*Math.PI*1200*t)*Math.exp(-t*3)*0.6;}return b;},
-'Bruh':()=>{const b=makeBuf(0.6),c=b.getChannelData(0);for(let i=0;i<c.length;i++){const t=i/sr;c[i]=(Math.sin(2*Math.PI*120*t)+Math.sin(2*Math.PI*180*t)*0.5)*Math.exp(-t*3)*0.6;}return b;},
-'Fart':()=>{const b=makeBuf(0.8),c=b.getChannelData(0);for(let i=0;i<c.length;i++){const t=i/sr;c[i]=(Math.random()*2-1)*0.4*Math.sin(2*Math.PI*80*t+3*Math.sin(2*Math.PI*5*t))*Math.exp(-t*2);}return b;},
-'Record Scratch':()=>{const b=makeBuf(0.5),c=b.getChannelData(0);for(let i=0;i<c.length;i++){const t=i/sr;c[i]=(Math.random()*2-1)*0.6*Math.exp(-t*6)*Math.sin(t*200);}return b;},
-'Crickets':()=>{const b=makeBuf(2),c=b.getChannelData(0);for(let i=0;i<c.length;i++){const t=i/sr;c[i]=Math.sin(2*Math.PI*4500*t)*0.2*(Math.sin(t*40)>0.8?1:0);}return b;},
-'Boing':()=>{const b=makeBuf(0.8),c=b.getChannelData(0);for(let i=0;i<c.length;i++){const t=i/sr;c[i]=Math.sin(2*Math.PI*(500+300*Math.sin(t*15))*t)*Math.exp(-t*4)*0.6;}return b;},
-'Slide Whistle':()=>{const b=makeBuf(1),c=b.getChannelData(0);for(let i=0;i<c.length;i++){const t=i/sr;c[i]=Math.sin(2*Math.PI*(400+1200*t)*t)*0.4*Math.exp(-t*1.5);}return b;},
-'Ba Dum Tss':()=>{const b=makeBuf(1.2),c=b.getChannelData(0);for(let i=0;i<c.length;i++){const t=i/sr;let v=0;if(t<0.15)v=Math.sin(2*Math.PI*150*t)*Math.exp(-t*20);else if(t>0.3&&t<0.45)v=Math.sin(2*Math.PI*200*(t-0.3))*Math.exp(-(t-0.3)*20);else if(t>0.6&&t<1.2)v=(Math.random()*2-1)*0.5*Math.exp(-(t-0.6)*4);c[i]=v*0.6;}return b;},
-'Fail Horn':()=>{const b=makeBuf(1.5),c=b.getChannelData(0);for(let i=0;i<c.length;i++){const t=i/sr;const f=200-30*t;c[i]=(Math.sin(2*Math.PI*f*t)+Math.sin(2*Math.PI*f*1.5*t)*0.3)*0.4*(t<1.3?1:1-(t-1.3)*5);}return b;},
-'Cartoon Run':()=>{const b=makeBuf(1),c=b.getChannelData(0);for(let i=0;i<c.length;i++){const t=i/sr;c[i]=Math.sin(2*Math.PI*(800+400*Math.sin(t*30))*t)*0.3*Math.exp(-t*1.5);}return b;},
-'Evil Laugh':()=>{const b=makeBuf(2),c=b.getChannelData(0);for(let i=0;i<c.length;i++){const t=i/sr;c[i]=(Math.sin(2*Math.PI*150*t)+Math.sin(2*Math.PI*200*t)*0.3)*0.4*(0.5+0.5*Math.sin(t*8))*(t>1.8?1-(t-1.8)*5:1);}return b;},
-'Rain':()=>{const b=makeBuf(4),c=b.getChannelData(0);for(let i=0;i<c.length;i++){c[i]=(Math.random()*2-1)*0.15*(0.7+0.3*Math.sin(i/sr*0.5));}return b;},
-'Ocean Waves':()=>{const b=makeBuf(4),c=b.getChannelData(0);for(let i=0;i<c.length;i++){const t=i/sr;c[i]=(Math.random()*2-1)*0.1*(0.5+0.5*Math.sin(t*0.8));}return b;},
-'Fireplace':()=>{const b=makeBuf(4),c=b.getChannelData(0);for(let i=0;i<c.length;i++){const crackle=Math.random()>0.995?Math.random()*0.6:0;c[i]=(Math.random()*2-1)*0.08+crackle;}return b;},
-'Forest Birds':()=>{const b=makeBuf(4),c=b.getChannelData(0);for(let i=0;i<c.length;i++){const t=i/sr;const bird=Math.sin(2*Math.PI*(2000+500*Math.sin(t*10))*t)*0.1*(Math.sin(t*2)>0.9?1:0);c[i]=(Math.random()*2-1)*0.04+bird;}return b;},
-'Thunderstorm':()=>{const b=makeBuf(4),c=b.getChannelData(0);for(let i=0;i<c.length;i++){const t=i/sr;const thunder=t>1.5&&t<2?(Math.random()*2-1)*0.7*Math.exp(-(t-1.5)*3):0;c[i]=(Math.random()*2-1)*0.12+thunder;}return b;},
-'Coffee Shop':()=>{const b=makeBuf(4),c=b.getChannelData(0);for(let i=0;i<c.length;i++){const t=i/sr;c[i]=(Math.random()*2-1)*0.06+Math.sin(2*Math.PI*250*t)*0.02*(Math.sin(t*3)>0.7?1:0);}return b;},
-'Wind':()=>{const b=makeBuf(4),c=b.getChannelData(0);for(let i=0;i<c.length;i++){const t=i/sr;c[i]=(Math.random()*2-1)*0.12*(0.5+0.5*Math.sin(t*0.3));}return b;},
-'River Stream':()=>{const b=makeBuf(4),c=b.getChannelData(0);for(let i=0;i<c.length;i++){const t=i/sr;c[i]=(Math.random()*2-1)*0.1*(0.8+0.2*Math.sin(t*2));}return b;},
-'Night Crickets':()=>{const b=makeBuf(4),c=b.getChannelData(0);for(let i=0;i<c.length;i++){const t=i/sr;c[i]=Math.sin(2*Math.PI*5000*t)*0.08*(Math.sin(t*25)>0.85?1:0)+(Math.random()*2-1)*0.02;}return b;},
-'Campfire':()=>{const b=makeBuf(4),c=b.getChannelData(0);for(let i=0;i<c.length;i++){const crackle=Math.random()>0.993?Math.random()*0.5:0;c[i]=(Math.random()*2-1)*0.06+crackle;}return b;},
-'Lo-fi Beat':()=>{const b=makeBuf(4),c=b.getChannelData(0);const bpm=80,bl=60/bpm;for(let i=0;i<c.length;i++){const t=i/sr;const beat=t%bl;const kick=beat<0.08?Math.sin(2*Math.PI*80*(1-beat*10)*beat)*Math.exp(-beat*40):0;const hat=beat>bl/2&&beat<bl/2+0.02?(Math.random()*2-1)*0.3*Math.exp(-(beat-bl/2)*100):0;c[i]=(kick*0.7+hat)*0.6;}return b;},
-'Upbeat Funk':()=>{const b=makeBuf(4),c=b.getChannelData(0);const bpm=120,bl=60/bpm;for(let i=0;i<c.length;i++){const t=i/sr;const beat=t%bl;const kick=beat<0.05?Math.sin(2*Math.PI*100*(1-beat*15)*beat)*Math.exp(-beat*50):0;const snare=beat>bl/2&&beat<bl/2+0.04?(Math.random()*2-1)*0.4*Math.exp(-(beat-bl/2)*60):0;c[i]=(kick*0.8+snare)*0.5;}return b;},
-'Chill Synth':()=>{const b=makeBuf(4),c=b.getChannelData(0);const notes=[261,293,329,349];for(let i=0;i<c.length;i++){const t=i/sr;const idx=Math.floor(t*2)%4;c[i]=Math.sin(2*Math.PI*notes[idx]*t)*0.3*(0.5+0.5*Math.sin(t*0.5));}return b;},
-'Jazz Piano':()=>{const b=makeBuf(4),c=b.getChannelData(0);const notes=[262,330,392,349,294,262];for(let i=0;i<c.length;i++){const t=i/sr;const idx=Math.floor(t*1.5)%6;const lt=t-Math.floor(t*1.5)/1.5;c[i]=Math.sin(2*Math.PI*notes[idx]*t)*0.35*Math.exp(-lt*2);}return b;},
-'Epic Orchestra':()=>{const b=makeBuf(4),c=b.getChannelData(0);for(let i=0;i<c.length;i++){const t=i/sr;c[i]=(Math.sin(2*Math.PI*130*t)+Math.sin(2*Math.PI*196*t)*0.7+Math.sin(2*Math.PI*262*t)*0.5)*0.2*(0.3+0.7*Math.min(t/2,1));}return b;},
-'Acoustic Guitar':()=>{const b=makeBuf(3),c=b.getChannelData(0);const notes=[330,392,494,392];for(let i=0;i<c.length;i++){const t=i/sr;const idx=Math.floor(t*2)%4;const lt=t%(0.5);c[i]=Math.sin(2*Math.PI*notes[idx]*t)*0.4*Math.exp(-lt*4)*(1+0.3*Math.sin(2*Math.PI*notes[idx]*2*t));}return b;},
-'EDM Drop':()=>{const b=makeBuf(4),c=b.getChannelData(0);const bpm=140,bl=60/bpm;for(let i=0;i<c.length;i++){const t=i/sr;const beat=t%bl;const kick=beat<0.04?Math.sin(2*Math.PI*60*(1-beat*20)*beat)*Math.exp(-beat*60)*0.9:0;const synth=Math.sin(2*Math.PI*220*t*(1+0.5*Math.sin(t*4)))*0.2;c[i]=(kick+synth)*0.5;}return b;},
-'Hip Hop Beat':()=>{const b=makeBuf(4),c=b.getChannelData(0);const bpm=90,bl=60/bpm;for(let i=0;i<c.length;i++){const t=i/sr;const beat=t%bl;const kick=beat<0.06?Math.sin(2*Math.PI*70*beat)*Math.exp(-beat*35)*0.8:0;const snare=beat>bl*0.5&&beat<bl*0.5+0.03?(Math.random()*2-1)*0.4*Math.exp(-(beat-bl*0.5)*80):0;const hat=beat%(bl/4)<0.01?(Math.random()*2-1)*0.15:0;c[i]=(kick+snare+hat)*0.6;}return b;},
-'Reggae Vibe':()=>{const b=makeBuf(4),c=b.getChannelData(0);const bpm=80,bl=60/bpm;for(let i=0;i<c.length;i++){const t=i/sr;const beat=t%bl;const offbeat=beat>bl*0.4&&beat<bl*0.6?Math.sin(2*Math.PI*330*t)*0.3*Math.exp(-(beat-bl*0.4)*20):0;const bass=Math.sin(2*Math.PI*110*t)*0.2*(beat<0.1?1:0.1);c[i]=(offbeat+bass)*0.6;}return b;},
-'Classical Piano':()=>{const b=makeBuf(4),c=b.getChannelData(0);const notes=[262,294,330,349,392,349,330,294];for(let i=0;i<c.length;i++){const t=i/sr;const idx=Math.floor(t*2)%8;const lt=t%(0.5);c[i]=Math.sin(2*Math.PI*notes[idx]*t)*0.4*Math.exp(-lt*3);}return b;},
-'Dog Bark':()=>{const b=makeBuf(0.5),c=b.getChannelData(0);for(let i=0;i<c.length;i++){const t=i/sr;c[i]=(Math.random()*2-1)*0.3*Math.exp(-t*8)+Math.sin(2*Math.PI*400*t)*0.5*Math.exp(-t*10);}return b;},
-'Cat Meow':()=>{const b=makeBuf(0.8),c=b.getChannelData(0);for(let i=0;i<c.length;i++){const t=i/sr;c[i]=Math.sin(2*Math.PI*(600+200*Math.sin(t*5))*t)*0.4*(t<0.1?t*10:1)*Math.exp(-t*2);}return b;},
-'Rooster':()=>{const b=makeBuf(1.5),c=b.getChannelData(0);for(let i=0;i<c.length;i++){const t=i/sr;c[i]=Math.sin(2*Math.PI*(800+400*t)*t)*0.4*(Math.sin(t*10)>0?1:0.3)*Math.exp(-t*0.8);}return b;},
-'Horse Neigh':()=>{const b=makeBuf(1.2),c=b.getChannelData(0);for(let i=0;i<c.length;i++){const t=i/sr;c[i]=Math.sin(2*Math.PI*(500+300*Math.sin(t*8))*t)*0.4*Math.exp(-t*1.5);}return b;},
-'Duck Quack':()=>{const b=makeBuf(0.4),c=b.getChannelData(0);for(let i=0;i<c.length;i++){const t=i/sr;c[i]=Math.sin(2*Math.PI*800*t)*0.5*Math.exp(-t*12)*(1+0.5*Math.sin(t*100));}return b;},
-'Elephant':()=>{const b=makeBuf(1.5),c=b.getChannelData(0);for(let i=0;i<c.length;i++){const t=i/sr;c[i]=Math.sin(2*Math.PI*(200+500*t)*t)*0.5*Math.exp(-t*1)*(0.5+0.5*Math.sin(t*15));}return b;},
-'Lion Roar':()=>{const b=makeBuf(2),c=b.getChannelData(0);for(let i=0;i<c.length;i++){const t=i/sr;c[i]=(Math.sin(2*Math.PI*100*t)+Math.random()*0.3)*0.4*(t<0.2?t*5:1)*Math.exp(-t*0.8);}return b;},
-'Monkey':()=>{const b=makeBuf(1),c=b.getChannelData(0);for(let i=0;i<c.length;i++){const t=i/sr;c[i]=Math.sin(2*Math.PI*(1000+500*Math.sin(t*20))*t)*0.3*(Math.sin(t*12)>0?1:0.2);}return b;},
-'Crow':()=>{const b=makeBuf(0.8),c=b.getChannelData(0);for(let i=0;i<c.length;i++){const t=i/sr;c[i]=(Math.random()*0.3+Math.sin(2*Math.PI*600*t)*0.4)*Math.exp(-t*3)*(Math.sin(t*15)>0?1:0.3);}return b;},
-'Wolf Howl':()=>{const b=makeBuf(2.5),c=b.getChannelData(0);for(let i=0;i<c.length;i++){const t=i/sr;const f=300+200*Math.sin(t*0.8);c[i]=Math.sin(2*Math.PI*f*t)*0.4*(t<0.3?t*3:1)*(t>2?1-(t-2)*2:1);}return b;},
-'Notification':()=>{const b=makeBuf(0.5),c=b.getChannelData(0);for(let i=0;i<c.length;i++){const t=i/sr;c[i]=(Math.sin(2*Math.PI*880*t)+Math.sin(2*Math.PI*1320*t)*0.5)*0.3*Math.exp(-t*5);}return b;},
-'Message Received':()=>{const b=makeBuf(0.6),c=b.getChannelData(0);for(let i=0;i<c.length;i++){const t=i/sr;const f=t<0.15?800:1000;c[i]=Math.sin(2*Math.PI*f*t)*0.4*Math.exp(-t*4);}return b;},
-'Error Sound':()=>{const b=makeBuf(0.5),c=b.getChannelData(0);for(let i=0;i<c.length;i++){const t=i/sr;c[i]=(Math.sin(2*Math.PI*200*t)+Math.sin(2*Math.PI*250*t))*0.3*Math.exp(-t*4);}return b;},
-'Level Up':()=>{const b=makeBuf(1),c=b.getChannelData(0);for(let i=0;i<c.length;i++){const t=i/sr;const f=400+600*t;c[i]=Math.sin(2*Math.PI*f*t)*0.4*Math.exp(-t*1.5);}return b;},
-'Achievement':()=>{const b=makeBuf(1.2),c=b.getChannelData(0);for(let i=0;i<c.length;i++){const t=i/sr;let f=523;if(t>0.2)f=659;if(t>0.4)f=784;c[i]=Math.sin(2*Math.PI*f*t)*0.4*(t>1?1-(t-1)*5:1);}return b;},
-'Coin Collect':()=>{const b=makeBuf(0.4),c=b.getChannelData(0);for(let i=0;i<c.length;i++){const t=i/sr;const f=t<0.1?988:1320;c[i]=Math.sin(2*Math.PI*f*t)*0.4*Math.exp(-t*6);}return b;},
-'Power Up':()=>{const b=makeBuf(0.8),c=b.getChannelData(0);for(let i=0;i<c.length;i++){const t=i/sr;c[i]=Math.sin(2*Math.PI*(300+1000*t)*t)*0.4*Math.exp(-t*2);}return b;},
-'Game Over':()=>{const b=makeBuf(1.5),c=b.getChannelData(0);for(let i=0;i<c.length;i++){const t=i/sr;const f=400-200*t;c[i]=Math.sin(2*Math.PI*f*t)*0.4*(t<1.3?1:1-(t-1.3)*5);}return b;},
-'Victory':()=>{const b=makeBuf(1.5),c=b.getChannelData(0);for(let i=0;i<c.length;i++){const t=i/sr;const notes=[523,659,784,1047];const idx=Math.min(Math.floor(t*3),3);c[i]=Math.sin(2*Math.PI*notes[idx]*t)*0.4*(t>1.3?1-(t-1.3)*5:1);}return b;},
-'Alarm':()=>{const b=makeBuf(1.5),c=b.getChannelData(0);for(let i=0;i<c.length;i++){const t=i/sr;c[i]=Math.sin(2*Math.PI*(800+200*Math.sin(t*10))*t)*0.4;}return b;}
+'Applause':()=>{const b=makeBuf(2),c=b.getChannelData(0);for(let i=0;i<c.length;i++){const t=i/sr;c[i]=(Math.random()*2-1)*0.4*(t<0.1?t*10:t>1.8?1-(t-1.8)*5:1)*Math.sin(t*50)*0.3+(Math.random()*2-1)*0.3;}b.copyToChannel(c,0);return b;},
+'Airhorn':()=>{const b=makeBuf(1.5),c=b.getChannelData(0);for(let i=0;i<c.length;i++){const t=i/sr;c[i]=Math.sin(2*Math.PI*800*t+6*Math.sin(2*Math.PI*3*t))*Math.exp(-t*0.5)*0.8;}b.copyToChannel(c,0);return b;},
+'Drum Roll':()=>{const b=makeBuf(2),c=b.getChannelData(0);for(let i=0;i<c.length;i++){const t=i/sr;const hit=Math.sin(t*80*Math.PI)>0.7?(Math.random()*2-1)*0.6*Math.exp(-(t%0.04)*80):0;c[i]=hit*(0.5+0.5*Math.min(t,1));}b.copyToChannel(c,0);return b;},
+'Laugh Track':()=>{const b=makeBuf(2.5),c=b.getChannelData(0);for(let i=0;i<c.length;i++){const t=i/sr;c[i]=(Math.random()*2-1)*0.3*(0.5+0.5*Math.sin(t*6))*(t<0.1?t*10:t>2?1-(t-2)*2:1);}b.copyToChannel(c,0);return b;},
+'Sad Trombone':()=>{const b=makeBuf(2),c=b.getChannelData(0);for(let i=0;i<c.length;i++){const t=i/sr;const f=350-100*t;c[i]=Math.sin(2*Math.PI*f*t)*0.5*(t<1.8?1:1-(t-1.8)*5);}b.copyToChannel(c,0);return b;},
+'Vine Boom':()=>{const b=makeBuf(1),c=b.getChannelData(0);for(let i=0;i<c.length;i++){const t=i/sr;c[i]=Math.sin(2*Math.PI*60*t+10*Math.exp(-t*8))*Math.exp(-t*4)*0.9;}b.copyToChannel(c,0);return b;},
+'Welcome':()=>{const b=makeBuf(1),c=b.getChannelData(0);for(let i=0;i<c.length;i++){const t=i/sr;c[i]=(Math.sin(2*Math.PI*523*t)+Math.sin(2*Math.PI*659*t)*0.5)*0.3*Math.exp(-t*2);}b.copyToChannel(c,0);return b;},
+'Goodbye':()=>{const b=makeBuf(1.2),c=b.getChannelData(0);for(let i=0;i<c.length;i++){const t=i/sr;c[i]=Math.sin(2*Math.PI*(400-100*t)*t)*0.4*Math.exp(-t*1.5);}b.copyToChannel(c,0);return b;},
+'Transition':()=>{const b=makeBuf(0.8),c=b.getChannelData(0);for(let i=0;i<c.length;i++){const t=i/sr;c[i]=Math.sin(2*Math.PI*(300+800*t)*t)*0.4*Math.exp(-t*3);}b.copyToChannel(c,0);return b;},
+'Countdown 3-2-1':()=>{const b=makeBuf(3),c=b.getChannelData(0);for(let i=0;i<c.length;i++){const t=i/sr;const seg=Math.floor(t);const lt=t-seg;const f=[440,523,659][seg]||659;c[i]=Math.sin(2*Math.PI*f*lt)*0.4*(lt<0.5?1:Math.exp(-(lt-0.5)*6));}b.copyToChannel(c,0);return b;},
+'Breaking News':()=>{const b=makeBuf(1.5),c=b.getChannelData(0);for(let i=0;i<c.length;i++){const t=i/sr;c[i]=(Math.sin(2*Math.PI*880*t)+Math.sin(2*Math.PI*1100*t)*0.5+Math.sin(2*Math.PI*660*t)*0.3)*0.25*(t<0.05?t*20:1)*Math.exp(-t*1.2);}b.copyToChannel(c,0);return b;},
+'Suspense':()=>{const b=makeBuf(3),c=b.getChannelData(0);for(let i=0;i<c.length;i++){const t=i/sr;c[i]=(Math.sin(2*Math.PI*100*t)*Math.sin(2*Math.PI*0.5*t)+Math.sin(2*Math.PI*150*t)*0.3)*0.3*(0.5+0.5*Math.sin(t*2));}b.copyToChannel(c,0);return b;},
+'Ta-da':()=>{const b=makeBuf(1),c=b.getChannelData(0);for(let i=0;i<c.length;i++){const t=i/sr;const f=t<0.3?392:t<0.5?494:523;c[i]=Math.sin(2*Math.PI*f*t)*0.5*(t>0.8?1-(t-0.8)*5:1);}b.copyToChannel(c,0);return b;},
+'Whoosh':()=>{const b=makeBuf(0.7),c=b.getChannelData(0);for(let i=0;i<c.length;i++){const t=i/sr;c[i]=(Math.random()*2-1)*0.5*Math.sin(Math.PI*t/0.7)*Math.exp(-Math.abs(t-0.35)*8);}b.copyToChannel(c,0);return b;},
+'Pop':()=>{const b=makeBuf(0.3),c=b.getChannelData(0);for(let i=0;i<c.length;i++){const t=i/sr;c[i]=Math.sin(2*Math.PI*800*t*Math.exp(-t*20))*Math.exp(-t*15)*0.8;}b.copyToChannel(c,0);return b;},
+'Ding':()=>{const b=makeBuf(1.5),c=b.getChannelData(0);for(let i=0;i<c.length;i++){const t=i/sr;c[i]=Math.sin(2*Math.PI*1200*t)*Math.exp(-t*3)*0.6;}b.copyToChannel(c,0);return b;},
+'Bruh':()=>{const b=makeBuf(0.6),c=b.getChannelData(0);for(let i=0;i<c.length;i++){const t=i/sr;c[i]=(Math.sin(2*Math.PI*120*t)+Math.sin(2*Math.PI*180*t)*0.5)*Math.exp(-t*3)*0.6;}b.copyToChannel(c,0);return b;},
+'Fart':()=>{const b=makeBuf(0.8),c=b.getChannelData(0);for(let i=0;i<c.length;i++){const t=i/sr;c[i]=(Math.random()*2-1)*0.4*Math.sin(2*Math.PI*80*t+3*Math.sin(2*Math.PI*5*t))*Math.exp(-t*2);}b.copyToChannel(c,0);return b;},
+'Record Scratch':()=>{const b=makeBuf(0.5),c=b.getChannelData(0);for(let i=0;i<c.length;i++){const t=i/sr;c[i]=(Math.random()*2-1)*0.6*Math.exp(-t*6)*Math.sin(t*200);}b.copyToChannel(c,0);return b;},
+'Crickets':()=>{const b=makeBuf(2),c=b.getChannelData(0);for(let i=0;i<c.length;i++){const t=i/sr;c[i]=Math.sin(2*Math.PI*4500*t)*0.2*(Math.sin(t*40)>0.8?1:0);}b.copyToChannel(c,0);return b;},
+'Boing':()=>{const b=makeBuf(0.8),c=b.getChannelData(0);for(let i=0;i<c.length;i++){const t=i/sr;c[i]=Math.sin(2*Math.PI*(500+300*Math.sin(t*15))*t)*Math.exp(-t*4)*0.6;}b.copyToChannel(c,0);return b;},
+'Slide Whistle':()=>{const b=makeBuf(1),c=b.getChannelData(0);for(let i=0;i<c.length;i++){const t=i/sr;c[i]=Math.sin(2*Math.PI*(400+1200*t)*t)*0.4*Math.exp(-t*1.5);}b.copyToChannel(c,0);return b;},
+'Ba Dum Tss':()=>{const b=makeBuf(1.2),c=b.getChannelData(0);for(let i=0;i<c.length;i++){const t=i/sr;let v=0;if(t<0.15)v=Math.sin(2*Math.PI*150*t)*Math.exp(-t*20);else if(t>0.3&&t<0.45)v=Math.sin(2*Math.PI*200*(t-0.3))*Math.exp(-(t-0.3)*20);else if(t>0.6&&t<1.2)v=(Math.random()*2-1)*0.5*Math.exp(-(t-0.6)*4);c[i]=v*0.6;}b.copyToChannel(c,0);return b;},
+'Fail Horn':()=>{const b=makeBuf(1.5),c=b.getChannelData(0);for(let i=0;i<c.length;i++){const t=i/sr;const f=200-30*t;c[i]=(Math.sin(2*Math.PI*f*t)+Math.sin(2*Math.PI*f*1.5*t)*0.3)*0.4*(t<1.3?1:1-(t-1.3)*5);}b.copyToChannel(c,0);return b;},
+'Cartoon Run':()=>{const b=makeBuf(1),c=b.getChannelData(0);for(let i=0;i<c.length;i++){const t=i/sr;c[i]=Math.sin(2*Math.PI*(800+400*Math.sin(t*30))*t)*0.3*Math.exp(-t*1.5);}b.copyToChannel(c,0);return b;},
+'Evil Laugh':()=>{const b=makeBuf(2),c=b.getChannelData(0);for(let i=0;i<c.length;i++){const t=i/sr;c[i]=(Math.sin(2*Math.PI*150*t)+Math.sin(2*Math.PI*200*t)*0.3)*0.4*(0.5+0.5*Math.sin(t*8))*(t>1.8?1-(t-1.8)*5:1);}b.copyToChannel(c,0);return b;},
+'Rain':()=>{const b=makeBuf(4),c=b.getChannelData(0);for(let i=0;i<c.length;i++){c[i]=(Math.random()*2-1)*0.15*(0.7+0.3*Math.sin(i/sr*0.5));}b.copyToChannel(c,0);return b;},
+'Ocean Waves':()=>{const b=makeBuf(4),c=b.getChannelData(0);for(let i=0;i<c.length;i++){const t=i/sr;c[i]=(Math.random()*2-1)*0.1*(0.5+0.5*Math.sin(t*0.8));}b.copyToChannel(c,0);return b;},
+'Fireplace':()=>{const b=makeBuf(4),c=b.getChannelData(0);for(let i=0;i<c.length;i++){const crackle=Math.random()>0.995?Math.random()*0.6:0;c[i]=(Math.random()*2-1)*0.08+crackle;}b.copyToChannel(c,0);return b;},
+'Forest Birds':()=>{const b=makeBuf(4),c=b.getChannelData(0);for(let i=0;i<c.length;i++){const t=i/sr;const bird=Math.sin(2*Math.PI*(2000+500*Math.sin(t*10))*t)*0.1*(Math.sin(t*2)>0.9?1:0);c[i]=(Math.random()*2-1)*0.04+bird;}b.copyToChannel(c,0);return b;},
+'Thunderstorm':()=>{const b=makeBuf(4),c=b.getChannelData(0);for(let i=0;i<c.length;i++){const t=i/sr;const thunder=t>1.5&&t<2?(Math.random()*2-1)*0.7*Math.exp(-(t-1.5)*3):0;c[i]=(Math.random()*2-1)*0.12+thunder;}b.copyToChannel(c,0);return b;},
+'Coffee Shop':()=>{const b=makeBuf(4),c=b.getChannelData(0);for(let i=0;i<c.length;i++){const t=i/sr;c[i]=(Math.random()*2-1)*0.06+Math.sin(2*Math.PI*250*t)*0.02*(Math.sin(t*3)>0.7?1:0);}b.copyToChannel(c,0);return b;},
+'Wind':()=>{const b=makeBuf(4),c=b.getChannelData(0);for(let i=0;i<c.length;i++){const t=i/sr;c[i]=(Math.random()*2-1)*0.12*(0.5+0.5*Math.sin(t*0.3));}b.copyToChannel(c,0);return b;},
+'River Stream':()=>{const b=makeBuf(4),c=b.getChannelData(0);for(let i=0;i<c.length;i++){const t=i/sr;c[i]=(Math.random()*2-1)*0.1*(0.8+0.2*Math.sin(t*2));}b.copyToChannel(c,0);return b;},
+'Night Crickets':()=>{const b=makeBuf(4),c=b.getChannelData(0);for(let i=0;i<c.length;i++){const t=i/sr;c[i]=Math.sin(2*Math.PI*5000*t)*0.08*(Math.sin(t*25)>0.85?1:0)+(Math.random()*2-1)*0.02;}b.copyToChannel(c,0);return b;},
+'Campfire':()=>{const b=makeBuf(4),c=b.getChannelData(0);for(let i=0;i<c.length;i++){const crackle=Math.random()>0.993?Math.random()*0.5:0;c[i]=(Math.random()*2-1)*0.06+crackle;}b.copyToChannel(c,0);return b;},
+'Lo-fi Beat':()=>{const b=makeBuf(4),c=b.getChannelData(0);const bpm=80,bl=60/bpm;for(let i=0;i<c.length;i++){const t=i/sr;const beat=t%bl;const kick=beat<0.08?Math.sin(2*Math.PI*80*(1-beat*10)*beat)*Math.exp(-beat*40):0;const hat=beat>bl/2&&beat<bl/2+0.02?(Math.random()*2-1)*0.3*Math.exp(-(beat-bl/2)*100):0;c[i]=(kick*0.7+hat)*0.6;}b.copyToChannel(c,0);return b;},
+'Upbeat Funk':()=>{const b=makeBuf(4),c=b.getChannelData(0);const bpm=120,bl=60/bpm;for(let i=0;i<c.length;i++){const t=i/sr;const beat=t%bl;const kick=beat<0.05?Math.sin(2*Math.PI*100*(1-beat*15)*beat)*Math.exp(-beat*50):0;const snare=beat>bl/2&&beat<bl/2+0.04?(Math.random()*2-1)*0.4*Math.exp(-(beat-bl/2)*60):0;c[i]=(kick*0.8+snare)*0.5;}b.copyToChannel(c,0);return b;},
+'Chill Synth':()=>{const b=makeBuf(4),c=b.getChannelData(0);const notes=[261,293,329,349];for(let i=0;i<c.length;i++){const t=i/sr;const idx=Math.floor(t*2)%4;c[i]=Math.sin(2*Math.PI*notes[idx]*t)*0.3*(0.5+0.5*Math.sin(t*0.5));}b.copyToChannel(c,0);return b;},
+'Jazz Piano':()=>{const b=makeBuf(4),c=b.getChannelData(0);const notes=[262,330,392,349,294,262];for(let i=0;i<c.length;i++){const t=i/sr;const idx=Math.floor(t*1.5)%6;const lt=t-Math.floor(t*1.5)/1.5;c[i]=Math.sin(2*Math.PI*notes[idx]*t)*0.35*Math.exp(-lt*2);}b.copyToChannel(c,0);return b;},
+'Epic Orchestra':()=>{const b=makeBuf(4),c=b.getChannelData(0);for(let i=0;i<c.length;i++){const t=i/sr;c[i]=(Math.sin(2*Math.PI*130*t)+Math.sin(2*Math.PI*196*t)*0.7+Math.sin(2*Math.PI*262*t)*0.5)*0.2*(0.3+0.7*Math.min(t/2,1));}b.copyToChannel(c,0);return b;},
+'Acoustic Guitar':()=>{const b=makeBuf(3),c=b.getChannelData(0);const notes=[330,392,494,392];for(let i=0;i<c.length;i++){const t=i/sr;const idx=Math.floor(t*2)%4;const lt=t%(0.5);c[i]=Math.sin(2*Math.PI*notes[idx]*t)*0.4*Math.exp(-lt*4)*(1+0.3*Math.sin(2*Math.PI*notes[idx]*2*t));}b.copyToChannel(c,0);return b;},
+'EDM Drop':()=>{const b=makeBuf(4),c=b.getChannelData(0);const bpm=140,bl=60/bpm;for(let i=0;i<c.length;i++){const t=i/sr;const beat=t%bl;const kick=beat<0.04?Math.sin(2*Math.PI*60*(1-beat*20)*beat)*Math.exp(-beat*60)*0.9:0;const synth=Math.sin(2*Math.PI*220*t*(1+0.5*Math.sin(t*4)))*0.2;c[i]=(kick+synth)*0.5;}b.copyToChannel(c,0);return b;},
+'Hip Hop Beat':()=>{const b=makeBuf(4),c=b.getChannelData(0);const bpm=90,bl=60/bpm;for(let i=0;i<c.length;i++){const t=i/sr;const beat=t%bl;const kick=beat<0.06?Math.sin(2*Math.PI*70*beat)*Math.exp(-beat*35)*0.8:0;const snare=beat>bl*0.5&&beat<bl*0.5+0.03?(Math.random()*2-1)*0.4*Math.exp(-(beat-bl*0.5)*80):0;const hat=beat%(bl/4)<0.01?(Math.random()*2-1)*0.15:0;c[i]=(kick+snare+hat)*0.6;}b.copyToChannel(c,0);return b;},
+'Reggae Vibe':()=>{const b=makeBuf(4),c=b.getChannelData(0);const bpm=80,bl=60/bpm;for(let i=0;i<c.length;i++){const t=i/sr;const beat=t%bl;const offbeat=beat>bl*0.4&&beat<bl*0.6?Math.sin(2*Math.PI*330*t)*0.3*Math.exp(-(beat-bl*0.4)*20):0;const bass=Math.sin(2*Math.PI*110*t)*0.2*(beat<0.1?1:0.1);c[i]=(offbeat+bass)*0.6;}b.copyToChannel(c,0);return b;},
+'Classical Piano':()=>{const b=makeBuf(4),c=b.getChannelData(0);const notes=[262,294,330,349,392,349,330,294];for(let i=0;i<c.length;i++){const t=i/sr;const idx=Math.floor(t*2)%8;const lt=t%(0.5);c[i]=Math.sin(2*Math.PI*notes[idx]*t)*0.4*Math.exp(-lt*3);}b.copyToChannel(c,0);return b;},
+'Dog Bark':()=>{const b=makeBuf(0.5),c=b.getChannelData(0);for(let i=0;i<c.length;i++){const t=i/sr;c[i]=(Math.random()*2-1)*0.3*Math.exp(-t*8)+Math.sin(2*Math.PI*400*t)*0.5*Math.exp(-t*10);}b.copyToChannel(c,0);return b;},
+'Cat Meow':()=>{const b=makeBuf(0.8),c=b.getChannelData(0);for(let i=0;i<c.length;i++){const t=i/sr;c[i]=Math.sin(2*Math.PI*(600+200*Math.sin(t*5))*t)*0.4*(t<0.1?t*10:1)*Math.exp(-t*2);}b.copyToChannel(c,0);return b;},
+'Rooster':()=>{const b=makeBuf(1.5),c=b.getChannelData(0);for(let i=0;i<c.length;i++){const t=i/sr;c[i]=Math.sin(2*Math.PI*(800+400*t)*t)*0.4*(Math.sin(t*10)>0?1:0.3)*Math.exp(-t*0.8);}b.copyToChannel(c,0);return b;},
+'Horse Neigh':()=>{const b=makeBuf(1.2),c=b.getChannelData(0);for(let i=0;i<c.length;i++){const t=i/sr;c[i]=Math.sin(2*Math.PI*(500+300*Math.sin(t*8))*t)*0.4*Math.exp(-t*1.5);}b.copyToChannel(c,0);return b;},
+'Duck Quack':()=>{const b=makeBuf(0.4),c=b.getChannelData(0);for(let i=0;i<c.length;i++){const t=i/sr;c[i]=Math.sin(2*Math.PI*800*t)*0.5*Math.exp(-t*12)*(1+0.5*Math.sin(t*100));}b.copyToChannel(c,0);return b;},
+'Elephant':()=>{const b=makeBuf(1.5),c=b.getChannelData(0);for(let i=0;i<c.length;i++){const t=i/sr;c[i]=Math.sin(2*Math.PI*(200+500*t)*t)*0.5*Math.exp(-t*1)*(0.5+0.5*Math.sin(t*15));}b.copyToChannel(c,0);return b;},
+'Lion Roar':()=>{const b=makeBuf(2),c=b.getChannelData(0);for(let i=0;i<c.length;i++){const t=i/sr;c[i]=(Math.sin(2*Math.PI*100*t)+Math.random()*0.3)*0.4*(t<0.2?t*5:1)*Math.exp(-t*0.8);}b.copyToChannel(c,0);return b;},
+'Monkey':()=>{const b=makeBuf(1),c=b.getChannelData(0);for(let i=0;i<c.length;i++){const t=i/sr;c[i]=Math.sin(2*Math.PI*(1000+500*Math.sin(t*20))*t)*0.3*(Math.sin(t*12)>0?1:0.2);}b.copyToChannel(c,0);return b;},
+'Crow':()=>{const b=makeBuf(0.8),c=b.getChannelData(0);for(let i=0;i<c.length;i++){const t=i/sr;c[i]=(Math.random()*0.3+Math.sin(2*Math.PI*600*t)*0.4)*Math.exp(-t*3)*(Math.sin(t*15)>0?1:0.3);}b.copyToChannel(c,0);return b;},
+'Wolf Howl':()=>{const b=makeBuf(2.5),c=b.getChannelData(0);for(let i=0;i<c.length;i++){const t=i/sr;const f=300+200*Math.sin(t*0.8);c[i]=Math.sin(2*Math.PI*f*t)*0.4*(t<0.3?t*3:1)*(t>2?1-(t-2)*2:1);}b.copyToChannel(c,0);return b;},
+'Notification':()=>{const b=makeBuf(0.5),c=b.getChannelData(0);for(let i=0;i<c.length;i++){const t=i/sr;c[i]=(Math.sin(2*Math.PI*880*t)+Math.sin(2*Math.PI*1320*t)*0.5)*0.3*Math.exp(-t*5);}b.copyToChannel(c,0);return b;},
+'Message Received':()=>{const b=makeBuf(0.6),c=b.getChannelData(0);for(let i=0;i<c.length;i++){const t=i/sr;const f=t<0.15?800:1000;c[i]=Math.sin(2*Math.PI*f*t)*0.4*Math.exp(-t*4);}b.copyToChannel(c,0);return b;},
+'Error Sound':()=>{const b=makeBuf(0.5),c=b.getChannelData(0);for(let i=0;i<c.length;i++){const t=i/sr;c[i]=(Math.sin(2*Math.PI*200*t)+Math.sin(2*Math.PI*250*t))*0.3*Math.exp(-t*4);}b.copyToChannel(c,0);return b;},
+'Level Up':()=>{const b=makeBuf(1),c=b.getChannelData(0);for(let i=0;i<c.length;i++){const t=i/sr;const f=400+600*t;c[i]=Math.sin(2*Math.PI*f*t)*0.4*Math.exp(-t*1.5);}b.copyToChannel(c,0);return b;},
+'Achievement':()=>{const b=makeBuf(1.2),c=b.getChannelData(0);for(let i=0;i<c.length;i++){const t=i/sr;let f=523;if(t>0.2)f=659;if(t>0.4)f=784;c[i]=Math.sin(2*Math.PI*f*t)*0.4*(t>1?1-(t-1)*5:1);}b.copyToChannel(c,0);return b;},
+'Coin Collect':()=>{const b=makeBuf(0.4),c=b.getChannelData(0);for(let i=0;i<c.length;i++){const t=i/sr;const f=t<0.1?988:1320;c[i]=Math.sin(2*Math.PI*f*t)*0.4*Math.exp(-t*6);}b.copyToChannel(c,0);return b;},
+'Power Up':()=>{const b=makeBuf(0.8),c=b.getChannelData(0);for(let i=0;i<c.length;i++){const t=i/sr;c[i]=Math.sin(2*Math.PI*(300+1000*t)*t)*0.4*Math.exp(-t*2);}b.copyToChannel(c,0);return b;},
+'Game Over':()=>{const b=makeBuf(1.5),c=b.getChannelData(0);for(let i=0;i<c.length;i++){const t=i/sr;const f=400-200*t;c[i]=Math.sin(2*Math.PI*f*t)*0.4*(t<1.3?1:1-(t-1.3)*5);}b.copyToChannel(c,0);return b;},
+'Victory':()=>{const b=makeBuf(1.5),c=b.getChannelData(0);for(let i=0;i<c.length;i++){const t=i/sr;const notes=[523,659,784,1047];const idx=Math.min(Math.floor(t*3),3);c[i]=Math.sin(2*Math.PI*notes[idx]*t)*0.4*(t>1.3?1-(t-1.3)*5:1);}b.copyToChannel(c,0);return b;},
+'Alarm':()=>{const b=makeBuf(1.5),c=b.getChannelData(0);for(let i=0;i<c.length;i++){const t=i/sr;c[i]=Math.sin(2*Math.PI*(800+200*Math.sin(t*10))*t)*0.4;}b.copyToChannel(c,0);return b;}
 };
 
 // === BGM GENERATORS ===
 const BGM_TRACKS=[
-{name:'Mystery Theme',gen:()=>{const dur=9,b=makeBuf(dur),c=b.getChannelData(0);for(let i=0;i<c.length;i++){const t=i/sr;const env=Math.sin(Math.PI*t/dur);c[i]=(Math.sin(2*Math.PI*110*t)*0.15+Math.sin(2*Math.PI*165*t)*0.1+Math.sin(2*Math.PI*55*t)*0.12)*env*(0.6+0.4*Math.sin(t*0.3))+(Math.sin(t*1.5)>0.85?Math.sin(2*Math.PI*440*t)*0.08*Math.exp(-(t%2)*3):0);}return b;}},
-{name:'Investigation Music',gen:()=>{const dur=9,b=makeBuf(dur),c=b.getChannelData(0);for(let i=0;i<c.length;i++){const t=i/sr;const env=Math.sin(Math.PI*t/dur);const pulse=Math.sin(2*Math.PI*2*t)>0?0.15:0.08;c[i]=(Math.sin(2*Math.PI*220*t)*pulse+Math.sin(2*Math.PI*330*t)*0.06+Math.sin(2*Math.PI*147*t)*0.1)*env;}return b;}},
-{name:'Tavern Ambience',gen:()=>{const dur=10,b=makeBuf(dur),c=b.getChannelData(0);const notes=[196,247,294,330,294,247];for(let i=0;i<c.length;i++){const t=i/sr;const env=Math.sin(Math.PI*t/dur);const idx=Math.floor(t*3)%6;const arp=Math.sin(2*Math.PI*notes[idx]*t)*0.15*Math.exp(-(t%(1/3))*6);const pad=(Math.sin(2*Math.PI*196*t)+Math.sin(2*Math.PI*247*t))*0.05;const crowd=(Math.random()*2-1)*0.03;c[i]=(arp+pad+crowd)*env;}return b;}},
-{name:'Horror Atmosphere',gen:()=>{const dur=10,b=makeBuf(dur),c=b.getChannelData(0);for(let i=0;i<c.length;i++){const t=i/sr;const env=Math.sin(Math.PI*t/dur);const drone=(Math.sin(2*Math.PI*55*t)+Math.sin(2*Math.PI*58*t))*0.12;const heartbeat=Math.sin(2*Math.PI*40*t)*0.15*(Math.sin(t*4.2)>0.9?Math.exp(-(t%0.75)*8):0);const creak=Math.random()>0.999?(Math.random()*2-1)*0.2:0;c[i]=(drone+heartbeat+creak)*env;}return b;}},
-{name:'Final Battle Music',gen:()=>{const dur=8,b=makeBuf(dur),c=b.getChannelData(0);const bpm=160,bl=60/bpm;for(let i=0;i<c.length;i++){const t=i/sr;const env=Math.sin(Math.PI*t/dur);const beat=t%bl;const kick=beat<0.04?Math.sin(2*Math.PI*80*(1-beat*20)*beat)*Math.exp(-beat*50)*0.7:0;const brass=(Math.sin(2*Math.PI*220*t)+Math.sin(2*Math.PI*330*t)*0.5)*0.12*(0.5+0.5*Math.min(t/4,1));c[i]=(kick+brass)*env;}return b;}},
-{name:'Chase Music',gen:()=>{const dur=8,b=makeBuf(dur),c=b.getChannelData(0);const bpm=170,bl=60/bpm;for(let i=0;i<c.length;i++){const t=i/sr;const env=Math.sin(Math.PI*t/dur);const beat=t%bl;const stac=beat<0.03?Math.sin(2*Math.PI*440*t)*0.3*Math.exp(-beat*60):0;const bass=Math.sin(2*Math.PI*110*t)*0.12*(beat<bl*0.5?1:0.4);c[i]=(stac+bass)*env*(0.7+0.3*Math.min(t/dur,1));}return b;}},
-{name:'Peaceful Village',gen:()=>{const dur=10,b=makeBuf(dur),c=b.getChannelData(0);const notes=[523,587,659,784,659,587];for(let i=0;i<c.length;i++){const t=i/sr;const env=Math.sin(Math.PI*t/dur);const idx=Math.floor(t*1.5)%6;const flute=Math.sin(2*Math.PI*notes[idx]*t)*0.12*Math.exp(-(t%(2/3))*2);const birds=Math.sin(2*Math.PI*(3000+500*Math.sin(t*8))*t)*0.02*(Math.sin(t*1.5)>0.92?1:0);const pad=(Math.sin(2*Math.PI*262*t)+Math.sin(2*Math.PI*330*t))*0.04;c[i]=(flute+birds+pad)*env;}return b;}},
-{name:'Dungeon Crawl',gen:()=>{const dur=10,b=makeBuf(dur),c=b.getChannelData(0);for(let i=0;i<c.length;i++){const t=i/sr;const env=Math.sin(Math.PI*t/dur);const drone=Math.sin(2*Math.PI*65*t)*0.1;const drip=Math.sin(t*2.3)>0.97?Math.sin(2*Math.PI*2000*t)*0.1*Math.exp(-(t%1)*20):0;const steps=Math.sin(t*0.8)>0.95?(Math.random()*2-1)*0.08*Math.exp(-(t%1.5)*10):0;const tension=Math.sin(2*Math.PI*98*t)*0.05*(0.5+0.5*Math.sin(t*0.2));c[i]=(drone+drip+steps+tension)*env;}return b;}}
+{name:'Mystery Theme',gen:()=>{const dur=9,b=makeBuf(dur),c=b.getChannelData(0);for(let i=0;i<c.length;i++){const t=i/sr;const env=Math.sin(Math.PI*t/dur);c[i]=(Math.sin(2*Math.PI*110*t)*0.15+Math.sin(2*Math.PI*165*t)*0.1+Math.sin(2*Math.PI*55*t)*0.12)*env*(0.6+0.4*Math.sin(t*0.3))+(Math.sin(t*1.5)>0.85?Math.sin(2*Math.PI*440*t)*0.08*Math.exp(-(t%2)*3):0);}b.copyToChannel(c,0);return b;}},
+{name:'Investigation Music',gen:()=>{const dur=9,b=makeBuf(dur),c=b.getChannelData(0);for(let i=0;i<c.length;i++){const t=i/sr;const env=Math.sin(Math.PI*t/dur);const pulse=Math.sin(2*Math.PI*2*t)>0?0.15:0.08;c[i]=(Math.sin(2*Math.PI*220*t)*pulse+Math.sin(2*Math.PI*330*t)*0.06+Math.sin(2*Math.PI*147*t)*0.1)*env;}b.copyToChannel(c,0);return b;}},
+{name:'Tavern Ambience',gen:()=>{const dur=10,b=makeBuf(dur),c=b.getChannelData(0);const notes=[196,247,294,330,294,247];for(let i=0;i<c.length;i++){const t=i/sr;const env=Math.sin(Math.PI*t/dur);const idx=Math.floor(t*3)%6;const arp=Math.sin(2*Math.PI*notes[idx]*t)*0.15*Math.exp(-(t%(1/3))*6);const pad=(Math.sin(2*Math.PI*196*t)+Math.sin(2*Math.PI*247*t))*0.05;const crowd=(Math.random()*2-1)*0.03;c[i]=(arp+pad+crowd)*env;}b.copyToChannel(c,0);return b;}},
+{name:'Horror Atmosphere',gen:()=>{const dur=10,b=makeBuf(dur),c=b.getChannelData(0);for(let i=0;i<c.length;i++){const t=i/sr;const env=Math.sin(Math.PI*t/dur);const drone=(Math.sin(2*Math.PI*55*t)+Math.sin(2*Math.PI*58*t))*0.12;const heartbeat=Math.sin(2*Math.PI*40*t)*0.15*(Math.sin(t*4.2)>0.9?Math.exp(-(t%0.75)*8):0);const creak=Math.random()>0.999?(Math.random()*2-1)*0.2:0;c[i]=(drone+heartbeat+creak)*env;}b.copyToChannel(c,0);return b;}},
+{name:'Final Battle Music',gen:()=>{const dur=8,b=makeBuf(dur),c=b.getChannelData(0);const bpm=160,bl=60/bpm;for(let i=0;i<c.length;i++){const t=i/sr;const env=Math.sin(Math.PI*t/dur);const beat=t%bl;const kick=beat<0.04?Math.sin(2*Math.PI*80*(1-beat*20)*beat)*Math.exp(-beat*50)*0.7:0;const brass=(Math.sin(2*Math.PI*220*t)+Math.sin(2*Math.PI*330*t)*0.5)*0.12*(0.5+0.5*Math.min(t/4,1));c[i]=(kick+brass)*env;}b.copyToChannel(c,0);return b;}},
+{name:'Chase Music',gen:()=>{const dur=8,b=makeBuf(dur),c=b.getChannelData(0);const bpm=170,bl=60/bpm;for(let i=0;i<c.length;i++){const t=i/sr;const env=Math.sin(Math.PI*t/dur);const beat=t%bl;const stac=beat<0.03?Math.sin(2*Math.PI*440*t)*0.3*Math.exp(-beat*60):0;const bass=Math.sin(2*Math.PI*110*t)*0.12*(beat<bl*0.5?1:0.4);c[i]=(stac+bass)*env*(0.7+0.3*Math.min(t/dur,1));}b.copyToChannel(c,0);return b;}},
+{name:'Peaceful Village',gen:()=>{const dur=10,b=makeBuf(dur),c=b.getChannelData(0);const notes=[523,587,659,784,659,587];for(let i=0;i<c.length;i++){const t=i/sr;const env=Math.sin(Math.PI*t/dur);const idx=Math.floor(t*1.5)%6;const flute=Math.sin(2*Math.PI*notes[idx]*t)*0.12*Math.exp(-(t%(2/3))*2);const birds=Math.sin(2*Math.PI*(3000+500*Math.sin(t*8))*t)*0.02*(Math.sin(t*1.5)>0.92?1:0);const pad=(Math.sin(2*Math.PI*262*t)+Math.sin(2*Math.PI*330*t))*0.04;c[i]=(flute+birds+pad)*env;}b.copyToChannel(c,0);return b;}},
+{name:'Dungeon Crawl',gen:()=>{const dur=10,b=makeBuf(dur),c=b.getChannelData(0);for(let i=0;i<c.length;i++){const t=i/sr;const env=Math.sin(Math.PI*t/dur);const drone=Math.sin(2*Math.PI*65*t)*0.1;const drip=Math.sin(t*2.3)>0.97?Math.sin(2*Math.PI*2000*t)*0.1*Math.exp(-(t%1)*20):0;const steps=Math.sin(t*0.8)>0.95?(Math.random()*2-1)*0.08*Math.exp(-(t%1.5)*10):0;const tension=Math.sin(2*Math.PI*98*t)*0.05*(0.5+0.5*Math.sin(t*0.2));c[i]=(drone+drip+steps+tension)*env;}b.copyToChannel(c,0);return b;}}
 ];
 const bgmBufferCache={};
 function getBGMBuffer(idx){if(!bgmBufferCache[idx])bgmBufferCache[idx]=BGM_TRACKS[idx].gen();return bgmBufferCache[idx];}
@@ -169,9 +177,14 @@ function getBuffer(name){if(!bufferCache[name]&&GENERATORS[name])bufferCache[nam
 const uploadedBuffers={};
 
 // === PLAYBACK ===
+// FIX: removed the stray duplicate/broken resumeCtx()+playSound() stub that used
+// to sit here (it referenced an undefined `source` variable and never awaited
+// the context resume). This is now the single, correct playSound implementation,
+// and it awaits resumeCtx() before scheduling anything so the very first click
+// (and every click after a context suspend) is guaranteed to be audible.
 const loopSet=new Set();
-function playSound(name){
-  resumeCtx();
+async function playSound(name){
+  await resumeCtx();
   if(activeSources[name]){stopSound(name);return;}
   const buffer=uploadedBuffers[name]||getBuffer(name);if(!buffer)return;
   const source=audioCtx.createBufferSource();source.buffer=buffer;source.playbackRate.value=currentPitch;source.loop=loopSet.has(name);
@@ -197,8 +210,8 @@ function setPitch(val){currentPitch=val;Object.values(activeSources).forEach(s=>
 
 // === BGM SYSTEM ===
 const bgmVolumes=BGM_TRACKS.map(()=>0.7);
-function playBGM(idx){
-  resumeCtx();const fadeDur=getFadeDur();
+async function playBGM(idx){
+  await resumeCtx();const fadeDur=getFadeDur();
   if(bgmCurrent&&bgmCurrent.idx===idx){stopBGMTrack();return;}
   if(bgmCurrent){const old=bgmCurrent;old.gain.gain.linearRampToValueAtTime(0,audioCtx.currentTime+fadeDur);setTimeout(()=>{try{old.source.stop();}catch(e){}},fadeDur*1000);}
   const buf=getBGMBuffer(idx);const source=audioCtx.createBufferSource();source.buffer=buf;source.loop=true;
@@ -212,8 +225,8 @@ function stopBGMTrack(){
   old.gain.gain.linearRampToValueAtTime(0,audioCtx.currentTime+fadeDur);
   setTimeout(()=>{try{old.source.stop();}catch(e){}},fadeDur*1000);renderBGM();updateNowPlaying();
 }
-function fadeInBGM(idx){
-  resumeCtx();if(bgmCurrent&&bgmCurrent.idx===idx)return;
+async function fadeInBGM(idx){
+  await resumeCtx();if(bgmCurrent&&bgmCurrent.idx===idx)return;
   if(bgmCurrent){const old=bgmCurrent;const fadeDur=getFadeDur();old.gain.gain.linearRampToValueAtTime(0,audioCtx.currentTime+fadeDur);setTimeout(()=>{try{old.source.stop();}catch(e){}},fadeDur*1000);}
   const buf=getBGMBuffer(idx);const source=audioCtx.createBufferSource();source.buffer=buf;source.loop=true;
   const gain=audioCtx.createGain();gain.gain.value=0;source.connect(gain);gain.connect(masterGain);source.start();
@@ -300,8 +313,8 @@ function startImportAnim(){
   }
   importAnimFrame=requestAnimationFrame(tick);
 }
-function toggleImportedPlay(id){
-  resumeCtx();const key='import_'+id,item=importedAudios.find(a=>a.id===id);if(!item)return;
+async function toggleImportedPlay(id){
+  await resumeCtx();const key='import_'+id,item=importedAudios.find(a=>a.id===id);if(!item)return;
   if(activeSources[key]){stopImported(id);return;}
   const offset=item.startTime||0;
   const source=audioCtx.createBufferSource();source.buffer=item.buffer;source.playbackRate.value=item.pitch;source.loop=item.loop;
@@ -338,9 +351,9 @@ function setImportStart(id,minVal,secVal){
 function toggleImportedLoop(id){const item=importedAudios.find(a=>a.id===id);if(!item)return;item.loop=!item.loop;const key='import_'+id;if(activeSources[key])activeSources[key].source.loop=item.loop;renderImportedList();}
 function setImportedVolume(id,val){const item=importedAudios.find(a=>a.id===id);if(!item)return;item.volume=val/100;const key='import_'+id;if(activeSources[key])activeSources[key].gain.gain.value=item.volume;}
 function setImportedPitch(id,val){const item=importedAudios.find(a=>a.id===id);if(!item)return;item.pitch=parseFloat(val);const key='import_'+id;if(activeSources[key])activeSources[key].source.playbackRate.value=item.pitch;}
-function fadeInImported(id){
-  resumeCtx();const key='import_'+id,item=importedAudios.find(a=>a.id===id);if(!item)return;
-  if(!activeSources[key]){toggleImportedPlay(id);}
+async function fadeInImported(id){
+  await resumeCtx();const key='import_'+id,item=importedAudios.find(a=>a.id===id);if(!item)return;
+  if(!activeSources[key]){await toggleImportedPlay(id);}
   const g=activeSources[key]?.gain;if(!g)return;
   g.gain.setValueAtTime(0,audioCtx.currentTime);g.gain.linearRampToValueAtTime(item.volume,audioCtx.currentTime+getFadeDur());
 }
@@ -377,7 +390,7 @@ document.getElementById('search-modal').addEventListener('click',function(e){if(
 const MOCK_FS_RESULTS=['Thunder Clap','Crowd Cheer','Wind Howling','Record Scratch','Synth Pad','Door Slam','Waterfall','Drum Fill','Bell Ring','Footsteps','Car Horn','Glass Break'];
 function doFreesoundSearch(){const q=document.getElementById('fs-search-input').value.trim().toLowerCase();const results=q?MOCK_FS_RESULTS.filter(r=>r.toLowerCase().includes(q)):MOCK_FS_RESULTS;document.getElementById('fs-results').innerHTML=results.map(r=>`<div class="search-result-item"><span>${r}</span><button onclick="addFromSearch('${r}')">Add to Board</button></div>`).join('');}
 doFreesoundSearch();
-function addFromSearch(name){const b=makeBuf(1.5),c=b.getChannelData(0);const freq=200+Math.random()*600;for(let i=0;i<c.length;i++){const t=i/sr;c[i]=Math.sin(2*Math.PI*freq*t)*0.3*Math.exp(-t*1);}uploadedBuffers[name]=b;if(!CATEGORIES['Custom'].includes(name))CATEGORIES['Custom'].push(name);const board=getCurrentBoard();board.pads.push({id:uuid(),name,category:'Custom',audio_url:'freesound-mock',volume:0.8,loop:false});saveBoards(appData);if(activeTab==='Custom')renderGrid();closeSearchModal();}
+function addFromSearch(name){const b=makeBuf(1.5),c=b.getChannelData(0);const freq=200+Math.random()*600;for(let i=0;i<c.length;i++){const t=i/sr;c[i]=Math.sin(2*Math.PI*freq*t)*0.3*Math.exp(-t*1);}b.copyToChannel(c,0);uploadedBuffers[name]=b;if(!CATEGORIES['Custom'].includes(name))CATEGORIES['Custom'].push(name);const board=getCurrentBoard();board.pads.push({id:uuid(),name,category:'Custom',audio_url:'freesound-mock',volume:0.8,loop:false});saveBoards(appData);if(activeTab==='Custom')renderGrid();closeSearchModal();}
 
 // === VIEW SWITCHING ===
 let currentView='soundboard';
@@ -439,6 +452,5 @@ function updateAllButtons(){renderGrid();}
 // === INIT ===
 renderAll();
 </script>
-<script defer src="https://static.cloudflareinsights.com/beacon.min.js/v4513226cdae34746b4dedf0b4dfa099e1781791509496" integrity="sha512-ZE9pZaUXND66v380QUtch/5sE9tPFh2zg45pR2PB0CVkCtOREv2AJKkSidISWkysEuQ0EH8faUU5du78bx87UQ==" data-cf-beacon='{"version":"2024.11.0","token":"75124c326cb447fe934cde04713ae013","r":1,"server_timing":{"name":{"cfCacheStatus":true,"cfEdge":true,"cfExtPri":true,"cfL4":true,"cfOrigin":true,"cfSpeedBrain":true},"location_startswith":null}}' crossorigin="anonymous"></script>
 </body>
 </html>
